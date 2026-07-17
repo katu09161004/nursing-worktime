@@ -42,6 +42,8 @@
   .now-timer{font-variant-numeric:tabular-nums; font-size:30px; font-weight:800; color:var(--accent); line-height:1}
   .now-since{font-size:12px; color:var(--muted)}
   .now-hint{font-size:12px; color:var(--muted); font-weight:700; flex-basis:100%; margin-top:2px}
+  .now-end{margin-left:auto; border:none; border-radius:10px; background:var(--ink); color:#fff;
+           padding:10px 16px; font-size:14px; font-weight:800; cursor:pointer}
   .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);display:inline-block;margin-right:6px;
        box-shadow:0 0 0 0 rgba(15,118,110,.5); animation:pulse 2s infinite}
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(15,118,110,.45)}70%{box-shadow:0 0 0 10px rgba(15,118,110,0)}100%{box-shadow:0 0 0 0 rgba(15,118,110,0)}}
@@ -49,8 +51,26 @@
   /* ---- カテゴリ ---- */
   .maj-h{margin:22px 4px 6px; font-size:15px; font-weight:800; color:var(--ink);
          border-bottom:2px solid var(--line); padding-bottom:6px}
-  .group{margin:16px 0}
-  .group-h{display:flex; align-items:center; gap:8px; margin:0 4px 8px; font-size:13px; font-weight:800; color:var(--muted)}
+
+  /* ---- 1段目: 中分類カード ---- */
+  .cat{display:block; width:100%; text-align:left; margin:10px 0; cursor:pointer;
+       background:var(--panel); border:1px solid var(--line); border-left:6px solid var(--c,#0f766e);
+       border-radius:14px; box-shadow:var(--shadow); padding:14px 16px}
+  .cat-top{display:flex; align-items:center; justify-content:space-between; gap:10px}
+  .cat-name{font-size:17px; font-weight:800; color:var(--ink)}
+  .cat-arrow{color:var(--muted); font-size:18px; font-weight:800}
+  .cat-list{margin-top:6px; font-size:12px; color:var(--muted); line-height:1.5}
+  .cat.on{border-color:transparent; border-left-color:var(--c,#0f766e); background:var(--c,#0f766e)}
+  .cat.on .cat-name,.cat.on .cat-arrow{color:#fff}
+  .cat.on .cat-list{color:rgba(255,255,255,.9)}
+  .cat-run{display:inline-block; font-size:11px; font-weight:800; color:#fff;
+           background:rgba(255,255,255,.25); border-radius:6px; padding:2px 7px; margin-left:8px}
+
+  /* ---- 2段目: 小分類 ---- */
+  .sub-top{display:flex; align-items:center; gap:12px; margin:14px 4px 12px}
+  .back-btn{border:1px solid var(--line); background:var(--panel); border-radius:10px;
+            padding:9px 14px; font-size:14px; font-weight:800; color:var(--ink); cursor:pointer}
+  .sub-title{display:flex; align-items:center; gap:8px; font-size:17px}
   .note{display:block; font-size:10px; font-weight:600; color:var(--muted); margin-top:3px; line-height:1.35}
   .btn.on .note{color:rgba(255,255,255,.9)}
 
@@ -162,7 +182,17 @@
       </div>
     </div>
 
-    <div id="groups"></div>
+    <!-- 1段目: 中分類を選ぶ -->
+    <div id="catScreen"></div>
+
+    <!-- 2段目: 選んだ中分類の小分類だけを出す -->
+    <div id="subScreen" class="hide">
+      <div class="sub-top">
+        <button class="back-btn" id="backBtn">← 戻る</button>
+        <div class="sub-title"><span class="swatch" id="subSwatch"></span><b id="subTitle">-</b></div>
+      </div>
+      <div id="subGrid" class="grid"></div>
+    </div>
 
     <div class="actions">
       <button class="act undo" id="undoBtn">直前を取り消す</button>
@@ -265,13 +295,14 @@ $("#startBtn").onclick=()=>{
 function showMain(){
   $("#setup").classList.add("hide"); $("#main").classList.remove("hide");
   $("#whoStaff").textContent=sess.staff; $("#whoWard").textContent=sess.ward; $("#whoShift").textContent=sess.shift;
-  renderGroups();
+  renderCats();
   refreshCurrent();
 }
 $("#changeBtn").onclick=(e)=>{ e.preventDefault(); showSetup(); };
 
-function renderGroups(){
-  const box=$("#groups"); box.innerHTML="";
+/* 1段目: 中分類カード。中身の小分類を並べて、開かなくても何が入っているか分かるようにする。 */
+function renderCats(){
+  const box=$("#catScreen"); box.innerHTML="";
   let lastGroup=null;
   CFG.categories.forEach(cat=>{
     // 大分類（A〜D）が変わったら、集計用紙と同じ見出しを挟む
@@ -279,30 +310,59 @@ function renderGroups(){
       const gh=document.createElement("div"); gh.className="maj-h"; gh.textContent=cat.group;
       box.appendChild(gh); lastGroup=cat.group;
     }
-    const g=document.createElement("div"); g.className="group";
-    const h=document.createElement("div"); h.className="group-h";
-    h.innerHTML=`<span class="swatch" style="background:${cat.color}"></span>${cat.label}`;
-    g.appendChild(h);
-    const grid=document.createElement("div"); grid.className="grid";
-    cat.subs.forEach(sub=>{
-      const b=document.createElement("button"); b.className="btn"; b.dataset.cat=cat.key; b.dataset.sub=sub.key;
-      b.style.setProperty("--c",cat.color);
-      b.innerHTML = sub.label
-        + (sub.ai_tool?`<span class="ai">${sub.ai_tool}</span>`:"")
-        + (sub.note?`<span class="note">※${sub.note}</span>`:"");
-      b.onclick=()=>punch(cat, sub, b);
-      grid.appendChild(b);
-    });
-    g.appendChild(grid); box.appendChild(g);
+    const b=document.createElement("button"); b.className="cat"; b.dataset.cat=cat.key;
+    b.style.setProperty("--c", cat.color);
+    b.innerHTML=`<div class="cat-top">
+        <span class="cat-name">${cat.label}<span class="cat-run" data-run="${cat.key}" style="display:none"></span></span>
+        <span class="cat-arrow">›</span>
+      </div>
+      <div class="cat-list">${cat.subs.map(s=>s.label).join("・")}</div>`;
+    b.onclick=()=>openCat(cat);
+    box.appendChild(b);
   });
   paintActive();
 }
+
+/* 2段目: 選んだ中分類の小分類だけを出す */
+function openCat(cat){
+  $("#subTitle").textContent=cat.label;
+  $("#subSwatch").style.background=cat.color;
+  const grid=$("#subGrid"); grid.innerHTML="";
+  cat.subs.forEach(sub=>{
+    const b=document.createElement("button"); b.className="btn"; b.dataset.cat=cat.key; b.dataset.sub=sub.key;
+    b.style.setProperty("--c",cat.color);
+    b.innerHTML = sub.label
+      + (sub.ai_tool?`<span class="ai">${sub.ai_tool}</span>`:"")
+      + (sub.note?`<span class="note">※${sub.note}</span>`:"");
+    b.onclick=()=>punch(cat, sub, b);
+    grid.appendChild(b);
+  });
+  $("#catScreen").classList.add("hide");
+  $("#subScreen").classList.remove("hide");
+  paintActive(); window.scrollTo(0,0);
+}
+
+function showCats(){
+  $("#subScreen").classList.add("hide");
+  $("#catScreen").classList.remove("hide");
+  paintActive(); window.scrollTo(0,0);
+}
+$("#backBtn").onclick=showCats;
 
 function paintActive(){
   document.querySelectorAll(".btn").forEach(b=>{
     const on = current && b.dataset.cat===current.category && b.dataset.sub===current.subcategory;
     b.classList.toggle("on", !!on);
     b.style.background = on ? getColor(b.dataset.cat) : "";
+  });
+  // 実行中の業務がある中分類カードを塗り、何を記録中かカードにも出す
+  document.querySelectorAll(".cat").forEach(b=>{
+    b.classList.toggle("on", !!(current && b.dataset.cat===current.category));
+  });
+  document.querySelectorAll("[data-run]").forEach(el=>{
+    const on = current && el.dataset.run===current.category;
+    el.style.display = on ? "inline-block" : "none";
+    if(on) el.textContent = "記録中 " + current.label;
   });
 }
 function getColor(catKey){ const c=CFG.categories.find(x=>x.key===catKey); return c?c.color:"#0f766e"; }
@@ -318,6 +378,7 @@ async function punch(cat, sub, btn){
   const body={staff_id:sess.staff, ward:sess.ward, shift:sess.shift, category:cat.key, subcategory:sub.key, ts, overtime};
   current={category:cat.key, subcategory:sub.key, label:sub.label, since:ts};
   paintActive(); renderNow();
+  showCats();  // 打刻したら中分類一覧へ戻す。次が別の中分類でもすぐ選べる。
   await send("/api/punch", body);
 }
 
@@ -375,7 +436,9 @@ function renderNow(){
   body.innerHTML=`<span class="now-label"><span class="dot"></span>${current.label}</span>
                   <span class="now-timer" id="elapsed">0:00</span>
                   <span class="now-since">開始 ${fmt(current.since)}</span>
-                  <span class="now-hint">もう一度同じボタンを押すと、この業務を終了します</span>`;
+                  <button class="now-end" id="nowEnd">この業務を終了</button>`;
+  // 2段階になり、同じボタンまで戻るのに手数がかかるので、ここから1タップで終われるようにする
+  $("#nowEnd").onclick=()=>endCurrent(`${current ? current.label : ""} を終了しました`);
   startTimer();
 }
 function startTimer(){ stopTimer(); tick(); timerHandle=setInterval(tick,1000); }
