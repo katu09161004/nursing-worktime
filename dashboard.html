@@ -82,6 +82,8 @@
     <div class="meta">
       <div><b id="mSessions">–</b>のべ勤務数</div>
       <div><b id="mTotal">–</b>総記録時間(時)</div>
+      <div><b id="mIn">–</b>勤務時間内(分)</div>
+      <div><b id="mOt">–</b>勤務時間外(分)</div>
       <div><b id="mIntervals">–</b>記録区間数</div>
     </div>
     <p class="sub" style="margin:6px 0 0">「1シフトあたり」= 総時間 ÷ のべ勤務数。同一値を導入後にも算出すれば差分がAI効果になります。</p>
@@ -93,15 +95,29 @@
   </div>
 
   <div class="card">
-    <h2>大区分別 時間配分</h2>
+    <h2>中分類別 時間配分</h2>
     <div id="catBars"></div>
   </div>
 
   <div class="card">
-    <h2>小区分別 明細</h2>
+    <h2>中分類別 集計（集計用紙の合計行）</h2>
     <table>
       <thead><tr>
-        <th>大区分</th><th>小区分</th>
+        <th>大分類</th><th>中分類</th>
+        <th class="num">勤務時間内(分)</th><th class="num">勤務時間外(分)</th><th class="num">合計(分)</th>
+      </tr></thead>
+      <tbody id="catRows"></tbody>
+      <tfoot id="catFoot"></tfoot>
+    </table>
+    <div id="catEmpty" class="empty">データがありません</div>
+  </div>
+
+  <div class="card">
+    <h2>小分類別 明細</h2>
+    <table>
+      <thead><tr>
+        <th>中分類</th><th>小分類</th>
+        <th class="num">時間内(分)</th><th class="num">時間外(分)</th>
         <th class="num">合計(分)</th><th class="num">1シフト(分)</th>
         <th class="num">回数</th><th class="num">割合</th>
       </tr></thead>
@@ -142,6 +158,8 @@ async function load(){
   const d=await (await fetch("/api/summary?"+qs())).json();
   $("#mSessions").textContent=d.n_sessions;
   $("#mTotal").textContent=(d.total_minutes/60).toFixed(1);
+  $("#mIn").textContent=d.total_in_minutes;
+  $("#mOt").textContent=d.total_ot_minutes;
   $("#mIntervals").textContent=d.n_intervals;
 
   // AIベースライン
@@ -157,7 +175,7 @@ async function load(){
       </div>`);
   });
 
-  // 大区分バー
+  // 中分類バー
   const cb=$("#catBars"); cb.innerHTML="";
   const max=Math.max(...d.categories.map(c=>c.minutes),1);
   d.categories.forEach(c=>{
@@ -171,13 +189,39 @@ async function load(){
   });
   if(!d.categories.length) cb.innerHTML=`<div class="empty">データがありません</div>`;
 
-  // 小区分テーブル
+  // 中分類テーブル（集計用紙の合計行 + 総計）
+  const cr=$("#catRows"); cr.innerHTML="";
+  let lastG=null;
+  d.categories.forEach(c=>{
+    const gcell = c.group!==lastG ? c.group : "";
+    lastG=c.group;
+    cr.insertAdjacentHTML("beforeend",`
+      <tr>
+        <td>${gcell}</td>
+        <td>${c.cat_label}</td>
+        <td class="num">${c.in_minutes}</td>
+        <td class="num">${c.ot_minutes}</td>
+        <td class="num">${c.minutes}</td>
+      </tr>`);
+  });
+  $("#catFoot").innerHTML = d.categories.length ? `
+      <tr>
+        <td></td><td><b>総計</b></td>
+        <td class="num"><b>${d.total_in_minutes}</b></td>
+        <td class="num"><b>${d.total_ot_minutes}</b></td>
+        <td class="num"><b>${d.total_minutes}</b></td>
+      </tr>` : "";
+  $("#catEmpty").style.display = d.categories.length ? "none":"block";
+
+  // 小分類テーブル
   const tb=$("#subRows"); tb.innerHTML="";
   d.subcategories.forEach(s=>{
     tb.insertAdjacentHTML("beforeend",`
       <tr>
         <td>${s.cat_label}</td>
         <td>${s.sub_label} ${s.ai_tool?`<span class="tag">${s.ai_tool}</span>`:""}</td>
+        <td class="num">${s.in_minutes}</td>
+        <td class="num">${s.ot_minutes}</td>
         <td class="num">${s.minutes}</td>
         <td class="num">${s.min_per_session}</td>
         <td class="num">${s.count}</td>

@@ -49,59 +49,106 @@ except ImportError:
 
 # ---------------------------------------------------------------------------
 # 業務区分定義（★ここが調査設計の心臓部。施設に合わせて編集する★）
-#   ai_tool を付けた小区分が、AI効果測定の対象（ベースライン→導入後で比較）。
+#   施設の「看護業務量集計用紙」に準拠（大分類A〜D → 中分類 → 小分類）。
+#   ai_tool を付けた小分類が、AI効果測定の対象（ベースライン→導入後で比較）。
 # ---------------------------------------------------------------------------
 CATEGORIES = [
+    # ---- A 患者中心の看護活動 ----
     {
-        "key": "direct", "label": "直接看護", "color": "#0f766e",
+        "key": "direct1", "label": "直接看護Ⅰ", "group": "A 患者中心の看護活動", "color": "#0f766e",
         "subs": [
-            {"key": "obs",     "label": "観察・バイタル測定"},
-            {"key": "care",    "label": "処置・与薬"},
-            {"key": "adl",     "label": "清潔・排泄ケア"},
-            {"key": "move",    "label": "移乗・移動介助"},
-            {"key": "explain", "label": "患者対応・説明"},
+            {"key": "hygiene",   "label": "清潔"},
+            {"key": "excretion", "label": "排泄"},
+            {"key": "meal",      "label": "食事"},
+            {"key": "safety",    "label": "安全・安楽"},
+            {"key": "obs",       "label": "測定・観察"},
+            {"key": "comm",      "label": "コミュニケーション"},
+            {"key": "roomenv",   "label": "病室環境整備"},
         ],
     },
     {
-        "key": "indirect", "label": "間接看護", "color": "#2563eb",
+        "key": "direct2", "label": "直接看護Ⅱ", "group": "A 患者中心の看護活動", "color": "#0d9488",
         "subs": [
-            {"key": "order",   "label": "指示受け・確認"},
-            {"key": "prep",    "label": "物品準備・片付け"},
-            {"key": "env",     "label": "環境整備"},
-            {"key": "coord",   "label": "連絡・調整"},
+            {"key": "proc",        "label": "看護処置", "note": "看護師独自又は医師の指示により看護師が実施"},
+            {"key": "proc_assist", "label": "処置の介助", "note": "医師と共に実施"},
+            {"key": "med_oral",    "label": "与薬（内服・外用・他）"},
+            {"key": "med_inj",     "label": "与薬（注射）"},
+            {"key": "round",       "label": "回診の介助"},
+            {"key": "exam",        "label": "検査"},
+            {"key": "patrol",      "label": "病室巡視"},
+            {"key": "me_prep",     "label": "MEの使用準備"},
         ],
     },
     {
-        # ★AI効果測定の主対象グループ★
-        "key": "record", "label": "記録", "color": "#b45309",
+        "key": "direct3", "label": "直接看護Ⅲ", "group": "A 患者中心の看護活動", "color": "#14b8a6",
         "subs": [
-            {"key": "soap",    "label": "看護記録・SOAP入力", "ai_tool": "medai SOAP Voice"},
-            {"key": "summary", "label": "退院時サマリー作成", "ai_tool": "SummyAI"},
-            {"key": "chart",   "label": "温度板・観察記録入力"},
-            {"key": "doc",     "label": "その他書類・記録"},
+            {"key": "guidance",  "label": "患者指導"},
+            {"key": "transport", "label": "患者搬送"},
+            {"key": "errand",    "label": "患者の用事"},
+            {"key": "transfer",  "label": "転室・転棟"},
         ],
     },
     {
-        "key": "share", "label": "情報共有", "color": "#7c3aed",
+        "key": "indirect", "label": "間接看護", "group": "A 患者中心の看護活動", "color": "#b45309",
         "subs": [
-            {"key": "handover", "label": "申し送り"},
-            {"key": "conf",     "label": "カンファレンス・会議", "ai_tool": "議事録自動生成"},
-            {"key": "phone",    "label": "電話・連絡対応"},
+            {"key": "record",     "label": "看護記録", "ai_tool": "medai SOAP Voice"},
+            {"key": "careplan",   "label": "看護計画"},
+            {"key": "summary",    "label": "サマリー", "ai_tool": "SummyAI"},
+            {"key": "fee_record", "label": "診療報酬に係る記録",
+             "note": "入退院診療計画書・褥瘡・SGA等、但し看護必要度は含まない"},
+            {"key": "handover",   "label": "引継ぎ"},
+            {"key": "conf",       "label": "カンファレンス", "ai_tool": "議事録自動生成"},
+            {"key": "order",      "label": "指示受け・報告"},
+            {"key": "info",       "label": "情報収集"},
+        ],
+    },
+    # ---- B 看護単位中心の活動 ----
+    {
+        "key": "supplies", "label": "物品管理", "group": "B 看護単位中心の活動", "color": "#2563eb",
+        "subs": [
+            {"key": "drug",       "label": "薬品"},
+            {"key": "consumable", "label": "消耗品"},
+            {"key": "sterile",    "label": "滅菌器材"},
         ],
     },
     {
-        "key": "misc", "label": "移動・教育・その他", "color": "#475569",
+        "key": "env", "label": "環境整備", "group": "B 看護単位中心の活動", "color": "#3b82f6",
         "subs": [
-            {"key": "walk",    "label": "移動（病棟内・院内）"},
-            {"key": "edu",     "label": "指導・教育・委員会"},
-            {"key": "other",   "label": "その他業務"},
+            {"key": "housekeeping", "label": "ハウスキーピング"},
+            {"key": "equipment",    "label": "器材の整備"},
+            {"key": "wipecart",     "label": "清拭車の準備"},
         ],
     },
     {
-        "key": "off", "label": "休憩・待機", "color": "#64748b",
+        "key": "clerical", "label": "事務", "group": "B 看護単位中心の活動", "color": "#6366f1",
         "subs": [
-            {"key": "break",   "label": "休憩"},
-            {"key": "standby", "label": "待機"},
+            {"key": "general",         "label": "事務一般"},
+            {"key": "transport_other", "label": "搬送（患者以外）"},
+        ],
+    },
+    {
+        "key": "contact", "label": "連絡", "group": "B 看護単位中心の活動", "color": "#7c3aed",
+        "subs": [
+            {"key": "nursecall", "label": "ナースコール"},
+            {"key": "phone",     "label": "電話連絡"},
+            {"key": "waiting",   "label": "待ち時間"},
+        ],
+    },
+    # ---- C 職員中心の活動 ----
+    {
+        "key": "admin_edu", "label": "管理・教育", "group": "C 職員中心の活動", "color": "#475569",
+        "subs": [
+            {"key": "admin",    "label": "管理業務"},
+            {"key": "training", "label": "研修"},
+            {"key": "student",  "label": "学生指導"},
+        ],
+    },
+    # ---- D その他の活動 ----
+    {
+        "key": "personal", "label": "私用", "group": "D その他の活動", "color": "#64748b",
+        "subs": [
+            {"key": "break",  "label": "食事・休憩"},
+            {"key": "toilet", "label": "私用（トイレ）"},
         ],
     },
 ]
@@ -110,8 +157,10 @@ CATEGORIES = [
 SUB_LABEL = {}
 SUB_AI = {}
 CAT_LABEL = {}
+CAT_GROUP = {}  # 中分類キー → 大分類（A〜D）。集計用紙の見出しに対応する。
 for c in CATEGORIES:
     CAT_LABEL[c["key"]] = c["label"]
+    CAT_GROUP[c["key"]] = c.get("group", "")
     for s in c["subs"]:
         SUB_LABEL[(c["key"], s["key"])] = s["label"]
         if s.get("ai_tool"):
@@ -135,14 +184,19 @@ def init_db():
                 staff_id  TEXT NOT NULL,
                 ward      TEXT NOT NULL,
                 shift     TEXT NOT NULL,
-                category  TEXT NOT NULL,   -- 大区分キー。'END' は記録終了マーカー
-                subcategory TEXT,          -- 小区分キー
+                category  TEXT NOT NULL,   -- 中分類キー。'END' は記録終了マーカー
+                subcategory TEXT,          -- 小分類キー
                 ts        TEXT NOT NULL,   -- ISO8601 (ローカル時刻)
-                note      TEXT
+                note      TEXT,
+                overtime  INTEGER NOT NULL DEFAULT 0  -- 0=勤務時間内 / 1=勤務時間外
             )
             """
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_staff_ts ON punches(staff_id, ts)")
+        # overtime 列を後から足したため、既存DBには ALTER で追加する
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(punches)")}
+        if "overtime" not in cols:
+            conn.execute("ALTER TABLE punches ADD COLUMN overtime INTEGER NOT NULL DEFAULT 0")
         conn.commit()
 
 
@@ -162,6 +216,7 @@ class Punch(BaseModel):
     subcategory: str | None = None
     note: str | None = None
     ts: str | None = None  # クライアント側のオフライン打刻用（省略時はサーバ時刻）
+    overtime: bool = False  # True=勤務時間外。記録画面のトグルで切り替える
 
 
 def parse_ts(value: str | None) -> datetime:
@@ -198,9 +253,10 @@ def api_punch(p: Punch):
     ts = parse_ts(p.ts)
     with closing(get_conn()) as conn:
         cur = conn.execute(
-            "INSERT INTO punches (staff_id, ward, shift, category, subcategory, ts, note) "
-            "VALUES (?,?,?,?,?,?,?)",
-            (p.staff_id, p.ward, p.shift, p.category, p.subcategory, ts.isoformat(timespec="seconds"), p.note),
+            "INSERT INTO punches (staff_id, ward, shift, category, subcategory, ts, note, overtime) "
+            "VALUES (?,?,?,?,?,?,?,?)",
+            (p.staff_id, p.ward, p.shift, p.category, p.subcategory,
+             ts.isoformat(timespec="seconds"), p.note, int(p.overtime)),
         )
         conn.commit()
         pid = cur.lastrowid
@@ -213,9 +269,10 @@ def api_end(p: Punch):
     ts = parse_ts(p.ts)
     with closing(get_conn()) as conn:
         conn.execute(
-            "INSERT INTO punches (staff_id, ward, shift, category, subcategory, ts, note) "
-            "VALUES (?,?,?,?,?,?,?)",
-            (p.staff_id, p.ward, p.shift, "END", None, ts.isoformat(timespec="seconds"), "記録終了"),
+            "INSERT INTO punches (staff_id, ward, shift, category, subcategory, ts, note, overtime) "
+            "VALUES (?,?,?,?,?,?,?,?)",
+            (p.staff_id, p.ward, p.shift, "END", None,
+             ts.isoformat(timespec="seconds"), "記録終了", int(p.overtime)),
         )
         conn.commit()
     return {"ok": True, "ts": ts.isoformat(timespec="seconds")}
@@ -291,6 +348,8 @@ def _load_intervals(where_sql: str, params: list):
                 "shift": cur["shift"],
                 "category": cur["category"],
                 "subcategory": cur["subcategory"],
+                "overtime": bool(cur["overtime"]),
+                "group": CAT_GROUP.get(cur["category"], ""),
                 "cat_label": CAT_LABEL.get(cur["category"], cur["category"]),
                 "sub_label": SUB_LABEL.get((cur["category"], cur["subcategory"]), ""),
                 "ai_tool": SUB_AI.get((cur["category"], cur["subcategory"]), ""),
@@ -330,53 +389,84 @@ def api_summary(
     if not include_suspect:
         intervals = [x for x in intervals if not x["suspect"]]
 
-    total = sum(x["minutes"] for x in intervals) or 1.0
+    total = sum(x["minutes"] for x in intervals)
+    denom = total or 1.0  # 0件のとき総計を1.0分と偽らないよう、割り算用の分母だけ分ける
 
     # スタッフ×シフト（=1人1回の勤務）の数で「1シフトあたり」を出す
     sessions = set((x["staff_id"], x["start"][:10], x["shift"]) for x in intervals)
     n_sessions = max(len(sessions), 1)
 
-    # 小区分別集計
+    # 小分類別集計。集計用紙に合わせ、勤務時間内/外を分けて持つ。
     sub_agg: dict = {}
     for x in intervals:
         k = (x["category"], x["subcategory"])
         a = sub_agg.setdefault(k, {
-            "category": x["category"], "cat_label": x["cat_label"],
+            "category": x["category"], "cat_label": x["cat_label"], "group": x["group"],
             "subcategory": x["subcategory"], "sub_label": x["sub_label"],
             "ai_tool": x["ai_tool"], "minutes": 0.0, "count": 0,
+            "in_minutes": 0.0, "ot_minutes": 0.0,
         })
         a["minutes"] += x["minutes"]
+        a["ot_minutes" if x["overtime"] else "in_minutes"] += x["minutes"]
         a["count"] += 1
 
     sub_list = []
     for a in sub_agg.values():
-        a["minutes"] = round(a["minutes"], 1)
-        a["pct"] = round(a["minutes"] / total * 100, 1)
+        for k in ("minutes", "in_minutes", "ot_minutes"):
+            a[k] = round(a[k], 1)
+        a["pct"] = round(a["minutes"] / denom * 100, 1)
         a["min_per_session"] = round(a["minutes"] / n_sessions, 1)
         sub_list.append(a)
     sub_list.sort(key=lambda z: -z["minutes"])
 
-    # 大区分別集計
+    # 中分類別集計（＝集計用紙の「合計」行）。用紙の並び順を保つ。
+    order = {c["key"]: i for i, c in enumerate(CATEGORIES)}
     cat_agg: dict = {}
     for x in intervals:
         a = cat_agg.setdefault(x["category"], {
-            "category": x["category"], "cat_label": x["cat_label"], "minutes": 0.0,
+            "category": x["category"], "cat_label": x["cat_label"], "group": x["group"],
+            "minutes": 0.0, "in_minutes": 0.0, "ot_minutes": 0.0,
         })
         a["minutes"] += x["minutes"]
+        a["ot_minutes" if x["overtime"] else "in_minutes"] += x["minutes"]
     cat_list = []
     for a in cat_agg.values():
-        a["minutes"] = round(a["minutes"], 1)
-        a["pct"] = round(a["minutes"] / total * 100, 1)
+        for k in ("minutes", "in_minutes", "ot_minutes"):
+            a[k] = round(a[k], 1)
+        a["pct"] = round(a["minutes"] / denom * 100, 1)
         cat_list.append(a)
-    cat_list.sort(key=lambda z: -z["minutes"])
+    cat_list.sort(key=lambda z: order.get(z["category"], 999))
 
-    # AI効果測定ベースライン（ai_tool付きの小区分のみ抽出）
+    # 大分類（A〜D）別集計
+    group_agg: dict = {}
+    for x in intervals:
+        a = group_agg.setdefault(x["group"], {
+            "group": x["group"], "minutes": 0.0, "in_minutes": 0.0, "ot_minutes": 0.0,
+        })
+        a["minutes"] += x["minutes"]
+        a["ot_minutes" if x["overtime"] else "in_minutes"] += x["minutes"]
+    group_list = []
+    for a in group_agg.values():
+        for k in ("minutes", "in_minutes", "ot_minutes"):
+            a[k] = round(a[k], 1)
+        a["pct"] = round(a["minutes"] / denom * 100, 1)
+        group_list.append(a)
+    group_list.sort(key=lambda z: z["group"])
+
+    # 総計（集計用紙の最下段）
+    total_in = round(sum(x["minutes"] for x in intervals if not x["overtime"]), 1)
+    total_ot = round(sum(x["minutes"] for x in intervals if x["overtime"]), 1)
+
+    # AI効果測定ベースライン（ai_tool付きの小分類のみ抽出）
     ai_baseline = [a for a in sub_list if a["ai_tool"]]
 
     return {
         "total_minutes": round(total, 1),
+        "total_in_minutes": total_in,
+        "total_ot_minutes": total_ot,
         "n_sessions": n_sessions,
         "n_intervals": len(intervals),
+        "groups": group_list,
         "categories": cat_list,
         "subcategories": sub_list,
         "ai_baseline": ai_baseline,
@@ -398,11 +488,15 @@ def api_export(
 
     buf = io.StringIO()
     w = csv.writer(buf)
-    w.writerow(["staff_id", "ward", "shift", "大区分", "小区分",
-                "AIツール", "開始", "終了", "所要分", "打ち忘れ疑い"])
+    w.writerow(["staff_id", "ward", "shift", "大分類", "中分類", "小分類",
+                "AIツール", "開始", "終了", "所要分", "勤務時間内", "勤務時間外",
+                "時間区分", "打ち忘れ疑い"])
     for x in intervals:
-        w.writerow([x["staff_id"], x["ward"], x["shift"], x["cat_label"], x["sub_label"],
+        w.writerow([x["staff_id"], x["ward"], x["shift"], x["group"], x["cat_label"], x["sub_label"],
                     x["ai_tool"], x["start"], x["end"], x["minutes"],
+                    "" if x["overtime"] else x["minutes"],
+                    x["minutes"] if x["overtime"] else "",
+                    "勤務時間外" if x["overtime"] else "勤務時間内",
                     "○" if x["suspect"] else ""])
     buf.seek(0)
     fname = f"worktime_{datetime.now():%Y%m%d_%H%M}.csv"

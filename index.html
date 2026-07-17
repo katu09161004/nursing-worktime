@@ -47,8 +47,19 @@
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(15,118,110,.45)}70%{box-shadow:0 0 0 10px rgba(15,118,110,0)}100%{box-shadow:0 0 0 0 rgba(15,118,110,0)}}
 
   /* ---- カテゴリ ---- */
+  .maj-h{margin:22px 4px 6px; font-size:15px; font-weight:800; color:var(--ink);
+         border-bottom:2px solid var(--line); padding-bottom:6px}
   .group{margin:16px 0}
   .group-h{display:flex; align-items:center; gap:8px; margin:0 4px 8px; font-size:13px; font-weight:800; color:var(--muted)}
+  .note{display:block; font-size:10px; font-weight:600; color:var(--muted); margin-top:3px; line-height:1.35}
+  .btn.on .note{color:rgba(255,255,255,.9)}
+
+  /* ---- 勤務時間内/外 トグル ---- */
+  .ot{display:flex; gap:6px; margin-top:10px; background:var(--bg); border-radius:12px; padding:4px}
+  .ot button{flex:1; border:none; background:transparent; border-radius:9px; padding:9px 8px;
+             font-size:13px; font-weight:800; color:var(--muted); cursor:pointer}
+  .ot button.sel{background:var(--panel); color:var(--ink); box-shadow:var(--shadow)}
+  .ot button.sel[data-ot="1"]{background:var(--warn); color:#fff}
   .swatch{width:12px;height:12px;border-radius:3px}
   .grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px}
   @media(min-width:560px){.grid{grid-template-columns:repeat(3,1fr)}}
@@ -145,6 +156,10 @@
       <div class="now-body" id="nowBody">
         <span class="now-idle">記録待機中 — 業務ボタンを押してください</span>
       </div>
+      <div class="ot" id="otToggle">
+        <button data-ot="0" class="sel">勤務時間内</button>
+        <button data-ot="1">勤務時間外</button>
+      </div>
     </div>
 
     <div id="groups"></div>
@@ -179,8 +194,10 @@
 <script>
 const LS = "nwt.session.v1";
 const OUTBOX = "nwt.outbox.v1";
+const OT = "nwt.overtime.v1";
 let CFG = null;
 let sess = JSON.parse(localStorage.getItem(LS) || "null"); // {staff,ward,shift}
+let overtime = JSON.parse(localStorage.getItem(OT) || "false"); // false=勤務時間内 / true=時間外
 let pick = {staff:null, ward:null, shift:null};
 let current = null;      // {label, since}
 let timerHandle = null;
@@ -190,10 +207,33 @@ function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("sh
 
 async function boot(){
   CFG = await (await fetch("/api/config")).json();
+  paintOt();
   if(sess && sess.staff){ showMain(); } else { showSetup(); }
   flushOutbox();
   setInterval(flushOutbox, 15000);
 }
+
+/* ---- 勤務時間内 / 勤務時間外 ---- */
+function paintOt(){
+  document.querySelectorAll("#otToggle button").forEach(b=>
+    b.classList.toggle("sel", (b.dataset.ot==="1")===overtime));
+}
+document.querySelectorAll("#otToggle button").forEach(b=>{
+  b.onclick=async ()=>{
+    const next = b.dataset.ot==="1";
+    if(next===overtime) return;
+    overtime=next; localStorage.setItem(OT, JSON.stringify(overtime)); paintOt();
+    // 実行中の業務があれば、切替時点で区間を割って同じ業務を新しい時間区分で打ち直す。
+    // こうしないと、残業に入った瞬間から後ろも「勤務時間内」のまま計上されてしまう。
+    if(current){
+      const ts=new Date().toISOString();
+      current={...current, since:ts}; renderNow();
+      await send("/api/punch", {staff_id:sess.staff, ward:sess.ward, shift:sess.shift,
+                                category:current.category, subcategory:current.subcategory, ts, overtime});
+    }
+    toast(overtime?"勤務時間外に切り替えました":"勤務時間内に切り替えました");
+  };
+});
 
 /* ---------------- セットアップ ---------------- */
 function showSetup(){
@@ -232,7 +272,13 @@ $("#changeBtn").onclick=(e)=>{ e.preventDefault(); showSetup(); };
 
 function renderGroups(){
   const box=$("#groups"); box.innerHTML="";
+  let lastGroup=null;
   CFG.categories.forEach(cat=>{
+    // 大分類（A〜D）が変わったら、集計用紙と同じ見出しを挟む
+    if(cat.group && cat.group!==lastGroup){
+      const gh=document.createElement("div"); gh.className="maj-h"; gh.textContent=cat.group;
+      box.appendChild(gh); lastGroup=cat.group;
+    }
     const g=document.createElement("div"); g.className="group";
     const h=document.createElement("div"); h.className="group-h";
     h.innerHTML=`<span class="swatch" style="background:${cat.color}"></span>${cat.label}`;
@@ -241,7 +287,9 @@ function renderGroups(){
     cat.subs.forEach(sub=>{
       const b=document.createElement("button"); b.className="btn"; b.dataset.cat=cat.key; b.dataset.sub=sub.key;
       b.style.setProperty("--c",cat.color);
-      b.innerHTML = sub.label + (sub.ai_tool?`<span class="ai">${sub.ai_tool}</span>`:"");
+      b.innerHTML = sub.label
+        + (sub.ai_tool?`<span class="ai">${sub.ai_tool}</span>`:"")
+        + (sub.note?`<span class="note">※${sub.note}</span>`:"");
       b.onclick=()=>punch(cat, sub, b);
       grid.appendChild(b);
     });
@@ -267,7 +315,7 @@ async function punch(cat, sub, btn){
     return;
   }
   const ts=new Date().toISOString();
-  const body={staff_id:sess.staff, ward:sess.ward, shift:sess.shift, category:cat.key, subcategory:sub.key, ts};
+  const body={staff_id:sess.staff, ward:sess.ward, shift:sess.shift, category:cat.key, subcategory:sub.key, ts, overtime};
   current={category:cat.key, subcategory:sub.key, label:sub.label, since:ts};
   paintActive(); renderNow();
   await send("/api/punch", body);
@@ -278,7 +326,7 @@ async function endCurrent(msg){
   const ts=new Date().toISOString();
   const done = current ? {label:current.label, since:current.since, until:ts} : null;
   current=null; paintActive(); renderNow();
-  await send("/api/end", {staff_id:sess.staff, ward:sess.ward, shift:sess.shift, category:"END", ts});
+  await send("/api/end", {staff_id:sess.staff, ward:sess.ward, shift:sess.shift, category:"END", ts, overtime});
   // 実行中の業務があったときは、確定した区間を出して確認してもらう。
   // 何も実行していなければ出すものが無いのでトーストだけ。
   if(done) showDone(done); else toast(msg);

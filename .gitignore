@@ -17,3 +17,6 @@ HANDOFF.md
 venv/
 __pycache__/
 *.py[cod]
+
+# make_xlsx.py の生成物（区分を変えたら再生成する）
+看護業務量集計シート.xlsx
