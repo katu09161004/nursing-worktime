@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>使い方マニュアル｜看護業務量調査</title>
+<style>
+  :root{
+    --bg:#eef2f4; --panel:#fff; --ink:#0f172a; --muted:#64748b; --line:#dbe3e8;
+    --accent:#0f766e; --warn:#b45309; --shadow:0 1px 2px rgba(15,23,42,.05),0 6px 18px rgba(15,23,42,.06);
+  }
+  *{box-sizing:border-box}
+  body{margin:0; font-family:-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;
+       background:var(--bg); color:var(--ink); line-height:1.7}
+  .wrap{max-width:840px; margin:0 auto; padding:20px 16px 80px}
+  a.back{color:var(--accent); text-decoration:none; font-weight:700; font-size:13px}
+  h1{font-size:24px; margin:12px 0 2px}
+  .lead{color:var(--muted); font-size:14px; margin:0 0 22px}
+  h2{font-size:19px; margin:34px 0 4px; padding-top:14px; border-top:2px solid var(--line)}
+  .sec-note{color:var(--muted); font-size:13px; margin:0 0 16px}
+  h3{font-size:16px; margin:22px 0 6px}
+
+  .toc{background:var(--panel); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow);
+       padding:14px 20px; margin-bottom:8px}
+  .toc b{font-size:13px; color:var(--muted); font-weight:800; letter-spacing:.02em}
+  .toc ul{margin:8px 0 0; padding-left:20px}
+  .toc a{color:var(--accent); text-decoration:none; font-weight:700}
+  .toc li{margin:3px 0}
+
+  .step{display:flex; gap:20px; align-items:flex-start; background:var(--panel);
+        border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow);
+        padding:18px 20px; margin:14px 0}
+  .step .txt{flex:1; min-width:0}
+  .step .shot{flex:none; width:230px}
+  .step.wide{flex-direction:column}
+  .step.wide .shot{width:100%}
+  .num{display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px;
+       border-radius:50%; background:var(--accent); color:#fff; font-weight:800; font-size:15px; margin-right:8px}
+  .step h3{margin:0 0 6px; font-size:17px}
+  .step p{margin:6px 0}
+  img.shot-img{width:100%; border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow); display:block}
+  .cap{font-size:12px; color:var(--muted); margin-top:6px; text-align:center}
+
+  .tip{background:#f0fdfa; border:1px solid #99f6e4; border-radius:12px; padding:12px 16px; margin:14px 0; font-size:14px}
+  .tip b{color:var(--accent)}
+  .warnbox{background:#fffbeb; border:1px solid #fde68a; border-radius:12px; padding:12px 16px; margin:14px 0; font-size:14px}
+  .warnbox b{color:var(--warn)}
+
+  /* ドロップダウンの図解（Excel節） */
+  .dd{display:inline-block; min-width:180px; border:1px solid var(--line); border-radius:8px; background:#fff; overflow:hidden; box-shadow:var(--shadow); vertical-align:top; margin:4px 8px 4px 0}
+  .dd-head{display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:#f8fafc; font-weight:700; font-size:14px; border-bottom:1px solid var(--line)}
+  .dd-head .caret{color:var(--muted)}
+  .dd-item{padding:7px 12px; font-size:13px; border-bottom:1px solid #eef2f4}
+  .dd-item:last-child{border-bottom:none}
+  .dd-item.on{background:var(--accent); color:#fff; font-weight:700}
+
+  ul.plain{margin:8px 0; padding-left:22px}
+  ul.plain li{margin:4px 0}
+  .kbd{display:inline-block; background:#f1f5f9; border:1px solid var(--line); border-radius:6px; padding:1px 7px; font-size:13px; font-weight:700}
+  @media(max-width:640px){ .step{flex-direction:column} .step .shot{width:100%} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="./index.html">← 記録画面へ戻る</a>
+  <h1>看護業務量調査ツール　使い方マニュアル</h1>
+  <p class="lead">「今やっている業務」のボタンを1タップするだけで、業務ごとの所要時間が自動で記録・集計されます。記録するのは業務区分と時刻だけで、患者情報は一切扱いません。</p>
+
+  <div class="toc">
+    <b>目次</b>
+    <ul>
+      <li><a href="#what">このツールは何をするか</a></li>
+      <li><a href="#app">スマホ・タブレットでの記録手順</a></li>
+      <li><a href="#overtime">勤務時間内／時間外の切り替え</a></li>
+      <li><a href="#dash">集計ダッシュボードの見方</a></li>
+      <li><a href="#excel">Excel集計シートの使い方</a></li>
+      <li><a href="#faq">よくある質問</a></li>
+    </ul>
+  </div>
+
+  <!-- ============ 何をするか ============ -->
+  <h2 id="what">このツールは何をするか</h2>
+  <p class="sec-note">目的は2つ ─ ①AI導入前後の業務時間の比較（ベースライン測定）、②多職種協働加算のエビデンス（他職種へ移せる業務時間の可視化）。</p>
+  <p>記録方式は<b>打刻式</b>です。業務が変わるたびに、今から始める業務のボタンを押します。<b>次のボタンを押すまでの時間</b>が、その業務の所要時間になります。ストップウォッチを都度止める必要はありません。</p>
+
+  <!-- ============ アプリ記録手順 ============ -->
+  <h2 id="app">スマホ・タブレットでの記録手順</h2>
+  <p class="sec-note">ブラウザで <span class="kbd">http://（サーバのIP）:8301/</span> を開きます。ホーム画面に追加すると、アプリのように全画面で使えます。</p>
+
+  <div class="step">
+    <div class="txt">
+      <h3><span class="num">1</span>従業員番号と病棟を選ぶ</h3>
+      <p>はじめに<b>従業員番号</b>を入力します。半角の数字・英字が使えます（英字は自動で大文字になります）。続いて<b>病棟</b>を選びます。</p>
+      <p>勤務帯は前回のまま使えます。変えるときは「勤務帯を変更」を開きます。一度設定すると次回からは自動でこの画面を飛ばして記録画面が開きます。</p>
+      <div class="tip">別の人に交代するときは、記録画面右上の<b>「担当変更」</b>から従業員番号を入れ直します。</div>
+    </div>
+    <div class="shot">
+      <img class="shot-img" src="./manual-assets/setup.png" alt="記録を始める画面">
+      <div class="cap">記録を始める画面</div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="txt">
+      <h3><span class="num">2</span>業務の大分類を選ぶ</h3>
+      <p>記録画面には、業務の大きなまとまり（<b>中分類</b>）がカードで並びます。カードには中身の業務が書いてあるので、開かなくても何が入っているか分かります。</p>
+      <p>今からやる業務が含まれるカードをタップします。</p>
+    </div>
+    <div class="shot">
+      <img class="shot-img" src="./manual-assets/categories.png" alt="中分類カード一覧">
+      <div class="cap">中分類のカード一覧</div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="txt">
+      <h3><span class="num">3</span>業務（小分類）を押して記録開始</h3>
+      <p>カードを開くと、その中の<b>小分類</b>だけが表示されます。今からやる業務のボタンを押すと、その瞬間から時間の計測が始まります。</p>
+      <p>別の中分類に切り替えたいときは「← 戻る」で一覧に戻ります。</p>
+    </div>
+    <div class="shot">
+      <img class="shot-img" src="./manual-assets/subitems.png" alt="小分類ボタン">
+      <div class="cap">選んだ中分類の小分類</div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="txt">
+      <h3><span class="num">4</span>記録中の画面と、業務の終わり方</h3>
+      <p>記録が始まると画面の上部に、今の業務名と<b>経過時間（タイマー）</b>が出ます。記録中の中分類カードは色が付き「記録中 ○○」と表示されるので、一覧に戻っても今なにを記録中か分かります。</p>
+      <p>業務の終わり方は2通りです。</p>
+      <ul class="plain">
+        <li><b>次の業務を押す</b> ─ 前の業務は自動で確定し、そのまま次が始まります（続けて業務するとき）。</li>
+        <li><b>「この業務を終了」を押す</b>（または同じボタンをもう一度押す）─ 記録を止めて待機に戻ります（休憩や勤務終了のとき）。</li>
+      </ul>
+      <div class="warnbox"><b>ご注意：</b>「終了」した後、次のボタンを押すまでの時間はどの業務にも計上されません。業務が途切れず続くときは、終了せず次のボタンを押していってください。</div>
+    </div>
+    <div class="shot">
+      <img class="shot-img" src="./manual-assets/recording.png" alt="記録中の画面">
+      <div class="cap">記録中（上部にタイマーと終了ボタン）</div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="txt">
+      <h3><span class="num">5</span>終了すると所要時間が表示される</h3>
+      <p>業務を終了すると、その業務の<b>名称・開始と終了の時刻・所要時間</b>が表示されます。内容を確認して「OK」を押すと閉じます。</p>
+      <p>押し間違えたときは、記録画面の<b>「直前を取り消す」</b>で直前の打刻を1つ取り消せます。</p>
+    </div>
+    <div class="shot">
+      <img class="shot-img" src="./manual-assets/done.png" alt="業務終了の確認">
+      <div class="cap">終了した業務の所要時間</div>
+    </div>
+  </div>
+
+  <!-- ============ 勤務時間内/外 ============ -->
+  <h2 id="overtime">勤務時間内／時間外の切り替え</h2>
+  <p class="sec-note">集計用紙と同じく、記録は「勤務時間内」と「勤務時間外（残業）」に分けて集計されます。</p>
+  <div class="step wide">
+    <div class="txt">
+      <p>画面上部のトグルで切り替えます。<b>通常は「勤務時間内」</b>のまま使います。残業に入ったら<b>「勤務時間外」</b>に切り替えてください（オレンジ色になります）。以降の記録は時間外として集計されます。</p>
+      <p>業務の途中で切り替えても大丈夫です。切り替えた時点で区間が分かれ、切り替え前は時間内、切り替え後は時間外として正しく計上されます。</p>
+    </div>
+    <div class="shot" style="max-width:420px">
+      <img class="shot-img" src="./manual-assets/overtime.png" alt="勤務時間外トグル">
+      <div class="cap">「勤務時間外」に切り替えた状態</div>
+    </div>
+  </div>
+
+  <!-- ============ ダッシュボード ============ -->
+  <h2 id="dash">集計ダッシュボードの見方</h2>
+  <p class="sec-note">記録画面のフッター「集計ダッシュボード →」、または <span class="kbd">/dashboard</span> で開きます。</p>
+  <div class="step wide">
+    <div class="txt">
+      <ul class="plain">
+        <li><b>期間・病棟・勤務帯</b>で絞り込み、「集計」を押すと再計算されます。</li>
+        <li><b>★AI効果測定ベースライン</b> ─ AIツール対象の業務（看護記録・サマリー・カンファレンス）の「1シフトあたり所要時間」。AI導入後に同じ値を出せば、差分が導入効果になります。</li>
+        <li><b>中分類別・小分類別</b> ─ 集計用紙と同じ並びで、勤務時間内／外に分けて表示します。</li>
+        <li><b>CSV出力</b> ─ 明細をCSVで書き出せます（Excelで開けます）。</li>
+      </ul>
+    </div>
+    <div class="shot">
+      <img class="shot-img" src="./manual-assets/dashboard.png" alt="集計ダッシュボード">
+      <div class="cap">集計ダッシュボード（数値はサンプル）</div>
+    </div>
+  </div>
+
+  <!-- ============ Excel ============ -->
+  <h2 id="excel">Excel集計シートの使い方</h2>
+  <p class="sec-note">タブレットを使わず紙の集計用紙の代わりに手入力したいときは、Excelの「看護業務量集計シート」を使います。※以下はシートのイメージで、実際のExcelとは罫線・列幅が多少異なります。</p>
+
+  <div class="step wide">
+    <div class="txt">
+      <h3>「入力」シートに記入する</h3>
+      <p><b>中分類</b>のセルをクリックすると、右に「▾」が出てプルダウンが開きます。中分類を選ぶと、<b>小分類</b>のプルダウンがその中分類のものだけに絞られます。</p>
+      <div style="margin:10px 0">
+        <span class="dd">
+          <span class="dd-head">中分類 <span class="caret">▾</span></span>
+          <span class="dd-item on">間接看護</span>
+          <span class="dd-item">物品管理</span>
+          <span class="dd-item">環境整備</span>
+        </span>
+        <span style="font-size:22px;color:var(--muted);vertical-align:middle">→</span>
+        <span class="dd">
+          <span class="dd-head">小分類 <span class="caret">▾</span></span>
+          <span class="dd-item on">看護記録</span>
+          <span class="dd-item">看護計画</span>
+          <span class="dd-item">サマリー</span>
+        </span>
+        <div class="cap" style="text-align:left">中分類を選ぶと小分類が連動して絞られる</div>
+      </div>
+      <p>あとは<b>勤務時間内(分)・勤務時間外(分)</b>に分数を入れるだけです。<b>大分類</b>と<b>計</b>は自動で入ります。1行に1業務で、行はいくつ足しても構いません。</p>
+    </div>
+    <div class="shot">
+      <img class="shot-img" src="./manual-assets/excel-input.png" alt="入力シート">
+      <div class="cap">「入力」シート（記入例）</div>
+    </div>
+  </div>
+
+  <div class="step wide">
+    <div class="txt">
+      <h3>「集計」シートで結果を見る</h3>
+      <p>入力すると<b>「集計」シートが自動で計算</b>されます。紙の集計用紙と同じく、中分類ごとの合計・総計を勤務時間内／外に分けて表示します。大分類別の小計と、AI効果測定ベースラインも出ます。<b>入力するだけで、手計算は不要です。</b></p>
+    </div>
+    <div class="shot">
+      <img class="shot-img" src="./manual-assets/excel-summary.png" alt="集計シート">
+      <div class="cap">「集計」シート（自動計算）</div>
+    </div>
+  </div>
+
+  <!-- ============ FAQ ============ -->
+  <h2 id="faq">よくある質問</h2>
+  <h3>Q. 記録するのを忘れて、ずっと同じ業務のままになっていた</h3>
+  <p>打刻の間隔が長すぎる区間（既定4時間超）は「打ち忘れ疑い」として、通常の集計から自動で除外されます。気づいた時点で正しい業務ボタンを押し直してください。</p>
+  <h3>Q. 患者さんの名前や情報は入りますか？</h3>
+  <p>入りません。このツールが記録するのは<b>業務区分と時刻だけ</b>です。担当者も従業員番号で識別し、氏名は扱いません。</p>
+  <h3>Q. 電波が届かない場所で押しても大丈夫？</h3>
+  <p>大丈夫です。通信できないときは端末内に一時保存し、電波が戻ったときにまとめて送信されます。押した時刻も正しく保持されます。</p>
+  <h3>Q. 画面を閉じても記録は続いていますか？</h3>
+  <p>はい。記録状態はサーバに保存されているので、画面を閉じても、別の端末で同じ従業員番号を開いても、続きから記録できます。</p>
+
+  <p style="margin-top:34px"><a class="back" href="./index.html">← 記録画面へ戻る</a></p>
+</div>
+</body>
+</html>
