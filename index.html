@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>看護業務量調査ツール ｜ プレビュー</title>
+<meta name="description" content="看護業務にかかる時間を『ボタン1タップ』で記録し、AI導入前後の効果測定ベースラインを取るためのオンプレ完結型ツール。">
+<style>
+  :root{
+    --bg:#f6f8f9; --panel:#fff; --ink:#0f172a; --muted:#5b6b7a; --line:#e2e8ee;
+    --accent:#0f766e; --accent-d:#0b5a54; --ai:#b45309;
+    --shadow:0 1px 2px rgba(15,23,42,.05),0 10px 30px rgba(15,23,42,.07);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;
+       color:var(--ink);background:var(--bg);line-height:1.75;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  a{color:var(--accent)}
+
+  /* hero */
+  header{background:linear-gradient(160deg,#0f766e,#0b5a54);color:#fff;padding:56px 0 48px}
+  header .wrap{display:flex;flex-direction:column;gap:6px}
+  .eyebrow{font-size:12px;font-weight:800;letter-spacing:.14em;opacity:.85;text-transform:uppercase}
+  h1{font-size:32px;line-height:1.3;margin:6px 0 4px;letter-spacing:.01em}
+  .lead{font-size:16px;opacity:.94;max-width:640px}
+  .cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:22px}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:13px 22px;border-radius:12px;font-weight:800;
+       font-size:15px;text-decoration:none;transition:transform .06s}
+  .btn:active{transform:scale(.98)}
+  .btn.primary{background:#fff;color:var(--accent-d)}
+  .btn.ghost{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.4)}
+  .demo-note{font-size:12px;opacity:.8;margin-top:12px}
+
+  section{padding:44px 0}
+  h2{font-size:21px;margin:0 0 14px;letter-spacing:.01em}
+  h2 .bar{display:inline-block;width:6px;height:20px;background:var(--accent);border-radius:3px;
+          margin-right:10px;vertical-align:-3px}
+  p.big{font-size:16px;color:#334155;max-width:720px}
+
+  .shots{display:grid;grid-template-columns:1fr;gap:22px;margin-top:8px}
+  @media(min-width:720px){.shots{grid-template-columns:300px 1fr;align-items:start}}
+  figure{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:16px;
+         box-shadow:var(--shadow);overflow:hidden}
+  figure img{display:block;width:100%}
+  figcaption{padding:10px 14px;font-size:12.5px;color:var(--muted)}
+
+  .feat{display:grid;grid-template-columns:1fr;gap:14px;margin-top:6px}
+  @media(min-width:640px){.feat{grid-template-columns:1fr 1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;box-shadow:var(--shadow)}
+  .card h3{margin:0 0 4px;font-size:15px}
+  .card p{margin:0;font-size:13.5px;color:var(--muted)}
+  .card .k{display:inline-block;font-size:11px;font-weight:800;color:var(--accent);
+           background:#e6f4f2;border-radius:6px;padding:2px 8px;margin-bottom:8px}
+
+  .ai-note{background:#fffaf1;border:1px solid #f0d9b8;border-radius:14px;padding:18px 20px;margin-top:8px}
+  .ai-note b{color:var(--ai)}
+
+  .steps{counter-reset:s;margin:8px 0 0;padding:0;list-style:none}
+  .steps li{counter-increment:s;position:relative;padding:8px 0 8px 42px;font-size:15px}
+  .steps li::before{content:counter(s);position:absolute;left:0;top:8px;width:28px;height:28px;border-radius:50%;
+    background:var(--accent);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:13px}
+
+  .tech{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+  .tag{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:13px;font-weight:700}
+
+  footer{border-top:1px solid var(--line);padding:26px 0 50px;color:var(--muted);font-size:13px}
+  footer .wrap{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="eyebrow">Nursing Workload Logger</div>
+    <h1>看護業務量調査ツール</h1>
+    <p class="lead">看護業務にかかる時間を <b>「ボタン1タップ」</b> で記録し、
+      AI（音声記録・退院時サマリー・議事録）導入の<b>前後で効果を測る基準値</b>を集めるための、
+      オンプレ完結・PHIを扱わないツールです。</p>
+    <div class="cta">
+      <a class="btn primary" href="./demo.html">▶ 記録画面をさわる（デモ）</a>
+      <a class="btn ghost" href="./demo-dashboard.html">集計ダッシュボード（デモ）</a>
+    </div>
+    <div class="demo-note">※デモはブラウザ内だけで動作します。サーバ送信・保存はされません。</div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <h2><span class="bar"></span>何をするツールか</h2>
+    <p class="big">看護師は「今やっている業務」のボタンを押すだけ。次のタップまでの時間が、その業務の
+      所要時間として自動で記録されます。「開始／終了」の2度押しは不要。集めたデータは、
+      <b>AI導入前後の比較ベースライン</b>と<b>多職種協働加算のエビデンス</b>の両方に使えます。</p>
+  </div>
+</section>
+
+<section style="background:#eef2f4">
+  <div class="wrap">
+    <h2><span class="bar"></span>画面</h2>
+    <div class="shots">
+      <figure>
+        <img src="./shots/recording.png" alt="記録画面">
+        <figcaption>記録画面（モバイル）。上部に「今の業務」と経過時間、押した業務が色付きになる。</figcaption>
+      </figure>
+      <figure>
+        <img src="./shots/dashboard.png" alt="集計ダッシュボード">
+        <figcaption>集計ダッシュボード。最上部に AI 効果測定対象業務の「分／シフト」がベースラインとして並ぶ。</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2><span class="bar"></span>特長</h2>
+    <div class="feat">
+      <div class="card"><span class="k">低負担</span><h3>ワンタップ記録</h3>
+        <p>業務が切り替わるたびにボタンを1回押すだけ。所要時間は自動算出。</p></div>
+      <div class="card"><span class="k">現場対応</span><h3>オフライン退避</h3>
+        <p>WiFiが切れても端末内に一時保存し、復帰時に自動再送。記録が消えない。</p></div>
+      <div class="card"><span class="k">目的直結</span><h3>AIベースライン自動集計</h3>
+        <p>SOAP入力・サマリー・カンファレンスを対象区分として分離し「分／シフト」で表示。</p></div>
+      <div class="card"><span class="k">安全</span><h3>PHIを扱わない</h3>
+        <p>記録するのは業務区分と時刻だけ。担当者は匿名ID。患者情報は一切入力しない設計。</p></div>
+      <div class="card"><span class="k">自己完結</span><h3>オンプレ／外部通信なし</h3>
+        <p>FastAPI + SQLite。院内サーバ1台で完結。データは1ファイルでバックアップ可。</p></div>
+      <div class="card"><span class="k">運用性</span><h3>モバイル＆常駐化</h3>
+        <p>ブラウザで開くだけ、ホーム画面追加でアプリ風。systemdで常駐。</p></div>
+    </div>
+  </div>
+</section>
+
+<section style="background:#eef2f4">
+  <div class="wrap">
+    <h2><span class="bar"></span>AI効果測定への使い方</h2>
+    <div class="ai-note">
+      <p style="margin:0 0 8px"><b>導入前</b>に2〜4週間記録し、対象業務の「分／シフト」を確定（＝ベースライン）。</p>
+      <p style="margin:0 0 8px"><b>導入後</b>、同じ期間・病棟・勤務帯で再度記録。</p>
+      <p style="margin:0">2つの「分／シフト」の差分＝削減時間。のべ勤務数と人件費を掛ければ金額換算まで一直線。
+        同じ1回の調査で「効果測定」と「加算エビデンス」の両方を賄えます。</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2><span class="bar"></span>使い方（看護師）</h2>
+    <ol class="steps">
+      <li>ブラウザで記録画面を開く（ホーム画面に追加しておくと便利）。</li>
+      <li>最初に担当者・病棟・勤務帯を選ぶ（初回だけ）。</li>
+      <li>業務を始めるたびに、その区分ボタンを1タップ。</li>
+      <li>勤務の終わりに「記録終了」。押し間違いは「直前を取り消す」。</li>
+    </ol>
+  </div>
+</section>
+
+<section style="background:#eef2f4">
+  <div class="wrap">
+    <h2><span class="bar"></span>技術構成</h2>
+    <div class="tech">
+      <span class="tag">Python / FastAPI</span>
+      <span class="tag">SQLite</span>
+      <span class="tag">Vanilla JS（依存なし）</span>
+      <span class="tag">systemd 常駐</span>
+      <span class="tag">PWA（ホーム画面追加）</span>
+      <span class="tag">オフライン退避（localStorage）</span>
+    </div>
+    <p class="big" style="margin-top:14px">導入手順は <a href="https://github.com/katu09161004/nursing-worktime/blob/main/INSTALL.md">INSTALL.md</a>、
+      モバイル接続は <a href="https://github.com/katu09161004/nursing-worktime/blob/main/DEPLOY-mobile.md">DEPLOY-mobile.md</a> を参照。</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div>看護業務量調査ツール — オンプレ完結・PHIレスの業務量ロガー</div>
+    <div><a href="https://github.com/katu09161004/nursing-worktime">GitHub リポジトリ</a> ・ MIT License</div>
+  </div>
+</footer>
+
+</body>
+</html>

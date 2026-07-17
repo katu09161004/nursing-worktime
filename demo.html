@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>看護業務量調査</title>
+<meta name="theme-color" content="#0f766e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="業務量調査">
+<style>
+  :root{
+    --bg:#eef2f4; --panel:#ffffff; --ink:#0f172a; --muted:#64748b;
+    --line:#dbe3e8; --accent:#0f766e; --danger:#b91c1c; --warn:#b45309;
+    --shadow:0 1px 2px rgba(15,23,42,.06), 0 6px 18px rgba(15,23,42,.06);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0}
+  body{
+    font-family:-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;
+    background:var(--bg); color:var(--ink);
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  .wrap{max-width:760px; margin:0 auto; padding:12px 12px 40px}
+
+  /* ---- 現在の記録バナー ---- */
+  .now{
+    position:sticky; top:8px; z-index:5;
+    background:var(--panel); border:1px solid var(--line); border-radius:16px;
+    box-shadow:var(--shadow); padding:14px 16px; margin-bottom:14px;
+  }
+  .now-top{display:flex; justify-content:space-between; align-items:center; gap:10px}
+  .who{font-size:13px; color:var(--muted); font-weight:600}
+  .who b{color:var(--ink)}
+  .now-body{display:flex; align-items:baseline; gap:12px; margin-top:8px; flex-wrap:wrap}
+  .now-label{font-size:22px; font-weight:800; letter-spacing:.01em}
+  .now-idle{color:var(--muted); font-weight:700}
+  .now-timer{font-variant-numeric:tabular-nums; font-size:20px; font-weight:700; color:var(--accent)}
+  .now-since{font-size:12px; color:var(--muted)}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);display:inline-block;margin-right:6px;
+       box-shadow:0 0 0 0 rgba(15,118,110,.5); animation:pulse 2s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(15,118,110,.45)}70%{box-shadow:0 0 0 10px rgba(15,118,110,0)}100%{box-shadow:0 0 0 0 rgba(15,118,110,0)}}
+
+  /* ---- カテゴリ ---- */
+  .group{margin:16px 0}
+  .group-h{display:flex; align-items:center; gap:8px; margin:0 4px 8px; font-size:13px; font-weight:800; color:var(--muted)}
+  .swatch{width:12px;height:12px;border-radius:3px}
+  .grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px}
+  @media(min-width:560px){.grid{grid-template-columns:repeat(3,1fr)}}
+  .btn{
+    appearance:none; border:1px solid var(--line); background:var(--panel);
+    border-radius:14px; padding:18px 14px; min-height:76px; font-size:16px; font-weight:700;
+    color:var(--ink); text-align:left; line-height:1.35; box-shadow:var(--shadow);
+    display:flex; flex-direction:column; justify-content:center; gap:4px; cursor:pointer;
+    transition:transform .05s ease, box-shadow .1s ease;
+  }
+  .btn:active{transform:scale(.97)}
+  .btn.on{color:#fff; border-color:transparent}
+  .btn .ai{font-size:11px; font-weight:800; opacity:.85}
+  .btn .ai::before{content:"AI "; }
+  .btn.on .ai{opacity:.95}
+
+  /* ---- 下部操作 ---- */
+  .actions{display:flex; gap:10px; margin-top:22px}
+  .act{
+    flex:1; border-radius:14px; padding:16px; font-size:15px; font-weight:800; cursor:pointer;
+    border:1px solid var(--line); background:var(--panel); color:var(--ink); box-shadow:var(--shadow);
+  }
+  .act.end{background:var(--ink); color:#fff; border-color:transparent}
+  .act.undo{color:var(--danger)}
+  .foot{display:flex; justify-content:space-between; align-items:center; margin-top:18px; font-size:12px; color:var(--muted)}
+  .link{color:var(--accent); font-weight:700; text-decoration:none}
+  .queue{color:var(--warn); font-weight:700}
+
+  /* ---- セットアップ画面 ---- */
+  .setup{background:var(--panel); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow); padding:20px}
+  .setup h1{font-size:18px; margin:0 0 4px}
+  .setup p{color:var(--muted); margin:0 0 18px; font-size:13px}
+  .field{margin-bottom:16px}
+  .field label{display:block; font-size:13px; font-weight:800; margin-bottom:8px; color:var(--muted)}
+  .chips{display:flex; flex-wrap:wrap; gap:8px}
+  .chip{border:1px solid var(--line); background:#fff; border-radius:999px; padding:9px 14px; font-size:14px; font-weight:700; cursor:pointer}
+  .chip.sel{background:var(--accent); color:#fff; border-color:transparent}
+  .staffgrid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px}
+  .staffgrid .chip{text-align:center}
+  .start{width:100%; margin-top:6px; padding:16px; border:none; border-radius:14px; background:var(--ink); color:#fff; font-size:16px; font-weight:800; cursor:pointer}
+  .start:disabled{opacity:.4}
+  .hide{display:none}
+
+  .toast{position:fixed; left:50%; bottom:24px; transform:translateX(-50%);
+    background:var(--ink); color:#fff; padding:12px 18px; border-radius:12px; font-weight:700; font-size:14px;
+    box-shadow:var(--shadow); opacity:0; transition:opacity .2s; pointer-events:none; z-index:20}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div style="max-width:760px;margin:0 auto 10px;padding:9px 12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;color:#9a3412;font-size:12px;font-weight:700;text-align:center">デモ版：サンプル動作です。データは端末内のみで、サーバには送信されません。 <a href="./demo-dashboard.html" style="color:#0f766e">集計デモを見る →</a></div>
+
+  <!-- セットアップ -->
+  <section id="setup" class="setup hide">
+    <h1>記録を始める</h1>
+    <p>担当者・病棟・勤務帯を選んでください。次回から自動で開きます。</p>
+    <div class="field">
+      <label>担当者（匿名ID）</label>
+      <div id="staffChips" class="staffgrid"></div>
+    </div>
+    <div class="field">
+      <label>病棟</label>
+      <div id="wardChips" class="chips"></div>
+    </div>
+    <div class="field">
+      <label>勤務帯</label>
+      <div id="shiftChips" class="chips"></div>
+    </div>
+    <button id="startBtn" class="start" disabled>この設定で記録を始める</button>
+  </section>
+
+  <!-- 記録画面 -->
+  <section id="main" class="hide">
+    <div class="now">
+      <div class="now-top">
+        <div class="who">担当 <b id="whoStaff">-</b> ／ <b id="whoWard">-</b> ／ <b id="whoShift">-</b></div>
+        <a href="#" id="changeBtn" class="link">担当変更</a>
+      </div>
+      <div class="now-body" id="nowBody">
+        <span class="now-idle">記録待機中 — 業務ボタンを押してください</span>
+      </div>
+    </div>
+
+    <div id="groups"></div>
+
+    <div class="actions">
+      <button class="act undo" id="undoBtn">直前を取り消す</button>
+      <button class="act end" id="endBtn">記録終了</button>
+    </div>
+
+    <div class="foot">
+      <a class="link" href="./demo-dashboard.html" target="_blank">集計ダッシュボード →</a>
+      <span id="queueInfo" class="queue"></span>
+    </div>
+  </section>
+
+</div>
+
+<div id="toast" class="toast"></div>
+
+
+<script>
+/* ===== DEMO MODE: バックエンド無し・全てブラウザ内で動作 ===== */
+const DEMO_CONFIG = {"categories": [{"key": "direct", "label": "直接看護", "color": "#0f766e", "subs": [{"key": "obs", "label": "観察・バイタル測定"}, {"key": "care", "label": "処置・与薬"}, {"key": "adl", "label": "清潔・排泄ケア"}, {"key": "move", "label": "移乗・移動介助"}, {"key": "explain", "label": "患者対応・説明"}]}, {"key": "indirect", "label": "間接看護", "color": "#2563eb", "subs": [{"key": "order", "label": "指示受け・確認"}, {"key": "prep", "label": "物品準備・片付け"}, {"key": "env", "label": "環境整備"}, {"key": "coord", "label": "連絡・調整"}]}, {"key": "record", "label": "記録", "color": "#b45309", "subs": [{"key": "soap", "label": "看護記録・SOAP入力", "ai_tool": "medai SOAP Voice"}, {"key": "summary", "label": "退院時サマリー作成", "ai_tool": "SummyAI"}, {"key": "chart", "label": "温度板・観察記録入力"}, {"key": "doc", "label": "その他書類・記録"}]}, {"key": "share", "label": "情報共有", "color": "#7c3aed", "subs": [{"key": "handover", "label": "申し送り"}, {"key": "conf", "label": "カンファレンス・会議", "ai_tool": "議事録自動生成"}, {"key": "phone", "label": "電話・連絡対応"}]}, {"key": "misc", "label": "移動・教育・その他", "color": "#475569", "subs": [{"key": "walk", "label": "移動（病棟内・院内）"}, {"key": "edu", "label": "指導・教育・委員会"}, {"key": "other", "label": "その他業務"}]}, {"key": "off", "label": "休憩・待機", "color": "#64748b", "subs": [{"key": "break", "label": "休憩"}, {"key": "standby", "label": "待機"}]}], "wards": ["病棟A", "病棟B", "病棟C", "その他"], "shifts": ["日勤", "夜勤", "早出", "遅出"], "staff": ["N-01", "N-02", "N-03", "N-04", "N-05", "N-06", "N-07", "N-08", "N-09", "N-10", "N-11", "N-12", "N-13", "N-14", "N-15", "N-16", "N-17", "N-18", "N-19", "N-20"]};
+(function(){
+  const KEY="nwt.demo.punches";
+  const load=()=>JSON.parse(localStorage.getItem(KEY)||"[]");
+  const save=a=>localStorage.setItem(KEY,JSON.stringify(a));
+  const label={};
+  DEMO_CONFIG.categories.forEach(c=>c.subs.forEach(s=>label[c.key+"|"+s.key]=s.label));
+  const orig=window.fetch.bind(window);
+  window.fetch=async(url,opts={})=>{
+    const u=typeof url==="string"?url:(url&&url.url)||"";
+    const body=opts.body?JSON.parse(opts.body):{};
+    const J=o=>new Response(JSON.stringify(o),{status:200,headers:{"Content-Type":"application/json"}});
+    const sp=()=>{try{return new URL(u,location.href).searchParams;}catch(e){return new URLSearchParams();}};
+    if(u.includes("/api/config")) return J(DEMO_CONFIG);
+    if(u.includes("/api/punch")){const a=load();a.push({staff_id:body.staff_id,category:body.category,subcategory:body.subcategory,ts:body.ts});save(a);return J({ok:true});}
+    if(u.includes("/api/end")){const a=load();a.push({staff_id:body.staff_id,category:"END",ts:body.ts});save(a);return J({ok:true});}
+    if(u.includes("/api/undo")){const sid=sp().get("staff_id");const a=load();for(let i=a.length-1;i>=0;i--){if(a[i].staff_id===sid){a.splice(i,1);break;}}save(a);return J({ok:true});}
+    if(u.includes("/api/current")){const sid=sp().get("staff_id");const a=load().filter(x=>x.staff_id===sid);const last=a[a.length-1];if(!last||last.category==="END")return J({active:false});return J({active:true,category:last.category,subcategory:last.subcategory,label:label[last.category+"|"+last.subcategory]||last.category,since:last.ts});}
+    return orig(url,opts);
+  };
+})();
+</script>
+
+<script>
+const LS = "nwt.session.v1";
+const OUTBOX = "nwt.outbox.v1";
+let CFG = null;
+let sess = JSON.parse(localStorage.getItem(LS) || "null"); // {staff,ward,shift}
+let pick = {staff:null, ward:null, shift:null};
+let current = null;      // {label, since}
+let timerHandle = null;
+
+const $ = s => document.querySelector(s);
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1600); }
+
+async function boot(){
+  CFG = await (await fetch("/api/config")).json();
+  if(sess && sess.staff){ showMain(); } else { showSetup(); }
+  flushOutbox();
+  setInterval(flushOutbox, 15000);
+}
+
+/* ---------------- セットアップ ---------------- */
+function showSetup(){
+  $("#setup").classList.remove("hide"); $("#main").classList.add("hide");
+  pick = Object.assign({staff:null,ward:null,shift:null}, sess||{});
+  renderChips("#staffChips", CFG.staff, "staff");
+  renderChips("#wardChips", CFG.wards, "ward");
+  renderChips("#shiftChips", CFG.shifts, "shift");
+  validate();
+}
+function renderChips(sel, items, key){
+  const box = $(sel); box.innerHTML="";
+  items.forEach(v=>{
+    const c=document.createElement("div");
+    c.className="chip"+(pick[key]===v?" sel":"");
+    c.textContent=v;
+    c.onclick=()=>{ pick[key]=v; renderChips(sel,items,key); validate(); };
+    box.appendChild(c);
+  });
+}
+function validate(){ $("#startBtn").disabled = !(pick.staff&&pick.ward&&pick.shift); }
+$("#startBtn").onclick=()=>{
+  sess={staff:pick.staff, ward:pick.ward, shift:pick.shift};
+  localStorage.setItem(LS, JSON.stringify(sess));
+  showMain();
+};
+
+/* ---------------- 記録画面 ---------------- */
+function showMain(){
+  $("#setup").classList.add("hide"); $("#main").classList.remove("hide");
+  $("#whoStaff").textContent=sess.staff; $("#whoWard").textContent=sess.ward; $("#whoShift").textContent=sess.shift;
+  renderGroups();
+  refreshCurrent();
+}
+$("#changeBtn").onclick=(e)=>{ e.preventDefault(); showSetup(); };
+
+function renderGroups(){
+  const box=$("#groups"); box.innerHTML="";
+  CFG.categories.forEach(cat=>{
+    const g=document.createElement("div"); g.className="group";
+    const h=document.createElement("div"); h.className="group-h";
+    h.innerHTML=`<span class="swatch" style="background:${cat.color}"></span>${cat.label}`;
+    g.appendChild(h);
+    const grid=document.createElement("div"); grid.className="grid";
+    cat.subs.forEach(sub=>{
+      const b=document.createElement("button"); b.className="btn"; b.dataset.cat=cat.key; b.dataset.sub=sub.key;
+      b.style.setProperty("--c",cat.color);
+      b.innerHTML = sub.label + (sub.ai_tool?`<span class="ai">${sub.ai_tool}</span>`:"");
+      b.onclick=()=>punch(cat, sub, b);
+      grid.appendChild(b);
+    });
+    g.appendChild(grid); box.appendChild(g);
+  });
+  paintActive();
+}
+
+function paintActive(){
+  document.querySelectorAll(".btn").forEach(b=>{
+    const on = current && b.dataset.cat===current.category && b.dataset.sub===current.subcategory;
+    b.classList.toggle("on", !!on);
+    b.style.background = on ? getColor(b.dataset.cat) : "";
+  });
+}
+function getColor(catKey){ const c=CFG.categories.find(x=>x.key===catKey); return c?c.color:"#0f766e"; }
+
+async function punch(cat, sub, btn){
+  const ts=new Date().toISOString();
+  const body={staff_id:sess.staff, ward:sess.ward, shift:sess.shift, category:cat.key, subcategory:sub.key, ts};
+  current={category:cat.key, subcategory:sub.key, label:sub.label, since:ts};
+  paintActive(); renderNow();
+  await send("/api/punch", body);
+}
+
+$("#endBtn").onclick=async ()=>{
+  const ts=new Date().toISOString();
+  await send("/api/end", {staff_id:sess.staff, ward:sess.ward, shift:sess.shift, category:"END", ts});
+  current=null; paintActive(); renderNow(); toast("記録を終了しました");
+};
+
+$("#undoBtn").onclick=async ()=>{
+  try{
+    const r=await fetch("/api/undo?staff_id="+encodeURIComponent(sess.staff), {method:"POST"});
+    if(!r.ok) throw 0;
+    toast("直前の打刻を取り消しました");
+    await refreshCurrent();
+  }catch(e){ toast("取り消せませんでした"); }
+};
+
+async function refreshCurrent(){
+  try{
+    const r=await fetch("/api/current?staff_id="+encodeURIComponent(sess.staff));
+    const d=await r.json();
+    current = d.active ? {category:d.category, subcategory:d.subcategory, label:d.label, since:d.since} : null;
+  }catch(e){ /* オフライン時は直近のローカル状態を維持 */ }
+  paintActive(); renderNow();
+}
+
+/* ---- 現在バナー + 経過タイマー ---- */
+function renderNow(){
+  const body=$("#nowBody");
+  if(!current){ body.innerHTML=`<span class="now-idle">記録待機中 — 業務ボタンを押してください</span>`; stopTimer(); return; }
+  body.innerHTML=`<span class="now-label"><span class="dot"></span>${current.label}</span>
+                  <span class="now-timer" id="elapsed">0分</span>
+                  <span class="now-since">開始 ${fmt(current.since)}</span>`;
+  startTimer();
+}
+function startTimer(){ stopTimer(); tick(); timerHandle=setInterval(tick,10000); }
+function stopTimer(){ if(timerHandle){clearInterval(timerHandle); timerHandle=null;} }
+function tick(){
+  const el=$("#elapsed"); if(!el||!current) return;
+  const min=Math.max(0, Math.round((Date.now()-new Date(current.since))/60000));
+  el.textContent = min<60 ? `${min}分` : `${Math.floor(min/60)}時間${min%60}分`;
+}
+function fmt(iso){ const d=new Date(iso); return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
+
+/* ---- 送信 + オフライン退避 ---- */
+async function send(url, body){
+  try{
+    const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    if(!r.ok) throw 0;
+  }catch(e){
+    const ob=JSON.parse(localStorage.getItem(OUTBOX)||"[]");
+    ob.push({url, body}); localStorage.setItem(OUTBOX, JSON.stringify(ob));
+    updateQueue();
+  }
+}
+async function flushOutbox(){
+  let ob=JSON.parse(localStorage.getItem(OUTBOX)||"[]");
+  if(!ob.length){ updateQueue(); return; }
+  const rest=[];
+  for(const item of ob){
+    try{
+      const r=await fetch(item.url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(item.body)});
+      if(!r.ok) throw 0;
+    }catch(e){ rest.push(item); }
+  }
+  localStorage.setItem(OUTBOX, JSON.stringify(rest));
+  updateQueue();
+}
+function updateQueue(){
+  const ob=JSON.parse(localStorage.getItem(OUTBOX)||"[]");
+  $("#queueInfo").textContent = ob.length ? `未送信 ${ob.length}件（自動再送）` : "";
+}
+
+boot();
+</script>
+</body>
+</html>
