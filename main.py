@@ -698,3 +698,17 @@ def index():
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard():
     return _read("dashboard.html")
+
+
+@app.get("/manual", response_class=HTMLResponse)
+def manual():
+    return _read("manual.html")
+
+
+@app.get("/manual-assets/{name}")
+def manual_asset(name: str):
+    # マニュアルのスクリーンショット（manual/ ディレクトリ、汎用値のみ）
+    path = os.path.join(BASE_DIR, "manual", os.path.basename(name))
+    if not os.path.exists(path):
+        raise HTTPException(404)
+    return FileResponse(path, media_type="image/png")
