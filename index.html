@@ -39,8 +39,9 @@
   .now-body{display:flex; align-items:baseline; gap:12px; margin-top:8px; flex-wrap:wrap}
   .now-label{font-size:22px; font-weight:800; letter-spacing:.01em}
   .now-idle{color:var(--muted); font-weight:700}
-  .now-timer{font-variant-numeric:tabular-nums; font-size:20px; font-weight:700; color:var(--accent)}
+  .now-timer{font-variant-numeric:tabular-nums; font-size:30px; font-weight:800; color:var(--accent); line-height:1}
   .now-since{font-size:12px; color:var(--muted)}
+  .now-hint{font-size:12px; color:var(--muted); font-weight:700; flex-basis:100%; margin-top:2px}
   .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);display:inline-block;margin-right:6px;
        box-shadow:0 0 0 0 rgba(15,118,110,.5); animation:pulse 2s infinite}
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(15,118,110,.45)}70%{box-shadow:0 0 0 10px rgba(15,118,110,0)}100%{box-shadow:0 0 0 0 rgba(15,118,110,0)}}
@@ -139,7 +140,7 @@
     </div>
 
     <div class="foot">
-      <a class="link" href="./demo-dashboard.html" target="_blank">集計ダッシュボード →</a>
+      <a class="link" href="/dashboard" target="_blank">集計ダッシュボード →</a>
       <span id="queueInfo" class="queue"></span>
     </div>
   </section>
@@ -233,6 +234,12 @@ function paintActive(){
 function getColor(catKey){ const c=CFG.categories.find(x=>x.key===catKey); return c?c.color:"#0f766e"; }
 
 async function punch(cat, sub, btn){
+  // 実行中の業務と同じボタンをもう一度押したら、その業務を終了して待機に戻す。
+  // 別の業務ボタンなら従来どおり打刻して切り替える（前の区間はそこで確定する）。
+  if(current && current.category===cat.key && current.subcategory===sub.key){
+    await endCurrent(`${sub.label} を終了しました`);
+    return;
+  }
   const ts=new Date().toISOString();
   const body={staff_id:sess.staff, ward:sess.ward, shift:sess.shift, category:cat.key, subcategory:sub.key, ts};
   current={category:cat.key, subcategory:sub.key, label:sub.label, since:ts};
@@ -240,11 +247,15 @@ async function punch(cat, sub, btn){
   await send("/api/punch", body);
 }
 
-$("#endBtn").onclick=async ()=>{
+/* ENDマーカーを打って待機状態へ戻す。最終区間はここで確定する。 */
+async function endCurrent(msg){
   const ts=new Date().toISOString();
+  current=null; paintActive(); renderNow();
   await send("/api/end", {staff_id:sess.staff, ward:sess.ward, shift:sess.shift, category:"END", ts});
-  current=null; paintActive(); renderNow(); toast("記録を終了しました");
-};
+  toast(msg);
+}
+
+$("#endBtn").onclick=async ()=>{ await endCurrent("記録を終了しました"); };
 
 $("#undoBtn").onclick=async ()=>{
   try{
@@ -269,16 +280,20 @@ function renderNow(){
   const body=$("#nowBody");
   if(!current){ body.innerHTML=`<span class="now-idle">記録待機中 — 業務ボタンを押してください</span>`; stopTimer(); return; }
   body.innerHTML=`<span class="now-label"><span class="dot"></span>${current.label}</span>
-                  <span class="now-timer" id="elapsed">0分</span>
-                  <span class="now-since">開始 ${fmt(current.since)}</span>`;
+                  <span class="now-timer" id="elapsed">0:00</span>
+                  <span class="now-since">開始 ${fmt(current.since)}</span>
+                  <span class="now-hint">もう一度同じボタンを押すと、この業務を終了します</span>`;
   startTimer();
 }
-function startTimer(){ stopTimer(); tick(); timerHandle=setInterval(tick,10000); }
+function startTimer(){ stopTimer(); tick(); timerHandle=setInterval(tick,1000); }
 function stopTimer(){ if(timerHandle){clearInterval(timerHandle); timerHandle=null;} }
 function tick(){
   const el=$("#elapsed"); if(!el||!current) return;
-  const min=Math.max(0, Math.round((Date.now()-new Date(current.since))/60000));
-  el.textContent = min<60 ? `${min}分` : `${Math.floor(min/60)}時間${min%60}分`;
+  // since から都度計算する。タブが非表示でsetIntervalが間引かれても表示は狂わない。
+  const sec=Math.max(0, Math.floor((Date.now()-new Date(current.since))/1000));
+  const h=Math.floor(sec/3600), m=Math.floor((sec%3600)/60), s=sec%60;
+  const pad=n=>String(n).padStart(2,"0");
+  el.textContent = h>0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
 }
 function fmt(iso){ const d=new Date(iso); return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
 
