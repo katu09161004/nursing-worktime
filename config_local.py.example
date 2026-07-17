@@ -1,7 +1,13 @@
-# config_local.py — 施設固有・非公開（.gitignore 済み。実ファイル名は config_local.py）
-# 病棟名・スタッフIDは公開リポジトリに出さないため、ここに置く。
-WARDS  = ["西6", "東6", "その他"]
+# config_local.py — 施設固有・非公開のサンプル。
+# このファイル(.example)はサンプルなので汎用値のみ。実値は書かない。
+# 使い方: コピーして config_local.py を作り、そこに実値を書く（config_local.py は .gitignore 済み）。
+#   cp config_local.py.example config_local.py
+# 病棟名・スタッフID・DBパスワードなど施設固有情報は config_local.py にのみ書き、
+# 絶対にこのサンプルや公開リポジトリのファイルに書かないこと。
+WARDS  = ["病棟A", "病棟B", "その他"]
 SHIFTS = ["日勤", "夜勤", "早出", "遅出"]
+# 従業員番号を自由入力する運用では STAFF は使われない（記録画面は入力欄）。
+# 旧来のプルダウン運用に戻す場合の候補としてのみ残す。
 STAFF  = ["N-01", "N-02", "N-03", "N-04", "N-05"]
 
 # PostgreSQL 接続（Webアプリ・Excel 共通の1つのDB）

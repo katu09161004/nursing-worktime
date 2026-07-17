@@ -119,6 +119,10 @@
   .chip.sel{background:var(--accent); color:#fff; border-color:transparent}
   .staffgrid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px}
   .staffgrid .chip{text-align:center}
+  .staff-input{width:100%; padding:14px 16px; border:1px solid var(--line); border-radius:12px;
+    font-size:18px; font-weight:700; letter-spacing:.06em; background:#fff; color:var(--ink)}
+  .staff-input:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(15,118,110,.15)}
+  .staff-hint{font-size:12px; color:var(--muted); margin-top:6px}
   .start{width:100%; margin-top:6px; padding:16px; border:none; border-radius:14px; background:var(--ink); color:#fff; font-size:16px; font-weight:800; cursor:pointer}
   .start:disabled{opacity:.4}
   .hide{display:none}
@@ -154,10 +158,13 @@
   <!-- セットアップ -->
   <section id="setup" class="setup hide">
     <h1>記録を始める</h1>
-    <p>担当者・病棟を選んでください。勤務帯は前回のまま使えます。次回から自動で開きます。</p>
+    <p>従業員番号を入力し、病棟を選んでください。勤務帯は前回のまま使えます。次回から自動で開きます。</p>
     <div class="field">
-      <label>担当者（匿名ID）</label>
-      <div id="staffChips" class="staffgrid"></div>
+      <label>従業員番号</label>
+      <input type="text" id="staffInput" class="staff-input" inputmode="text"
+             autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false"
+             placeholder="例: 100234 / NS12" maxlength="20">
+      <div class="staff-hint">半角の数字・英字で入力してください（英字は大文字に統一されます）</div>
     </div>
     <div class="field">
       <label>病棟</label>
@@ -287,11 +294,26 @@ function showSetup(){
   pick = Object.assign({staff:null,ward:null,shift:null}, sess||{});
   if(!pick.shift) pick.shift = CFG.shifts[0];   // 勤務帯は前回値（無ければ先頭）を既定に
   $("#shiftField").classList.add("hide");        // 勤務帯は隠しておく
-  renderChips("#staffChips", CFG.staff, "staff");
+  const si=$("#staffInput");
+  si.value = pick.staff || "";        // 前回の従業員番号を復元
   renderChips("#wardChips", CFG.wards, "ward");
   renderChips("#shiftChips", CFG.shifts, "shift");
   validate();
 }
+
+// 従業員番号は半角の英数字のみ。英字は大文字に寄せ、集計で N-01 と n-01 が
+// 別人に割れないようにする（集計は staff_id 文字列そのままで突き合わせるため）。
+function normStaff(v){ return (v||"").toUpperCase().replace(/[^0-9A-Z]/g, ""); }
+$("#staffInput").addEventListener("input", e=>{
+  const start=e.target.selectionStart;
+  const before=e.target.value;
+  const cleaned=normStaff(before);
+  e.target.value=cleaned;
+  // 消えた文字数だけキャレット位置を戻す（末尾入力なら影響なし）
+  if(cleaned!==before){ const d=before.length-cleaned.length; try{e.target.setSelectionRange(start-d,start-d);}catch(_){} }
+  pick.staff=cleaned;
+  validate();
+});
 function renderChips(sel, items, key){
   const box = $(sel); box.innerHTML="";
   items.forEach(v=>{
@@ -303,7 +325,7 @@ function renderChips(sel, items, key){
   });
 }
 function updateMore(){ const el=$("#moreToggle"); if(el) el.textContent = "▾ 勤務帯: " + (pick.shift||"-") + "（変更）"; }
-function validate(){ $("#startBtn").disabled = !(pick.staff&&pick.ward); updateMore(); }
+function validate(){ $("#startBtn").disabled = !(pick.staff && pick.staff.length>=1 && pick.ward); updateMore(); }
 $("#startBtn").onclick=()=>{
   sess={staff:pick.staff, ward:pick.ward, shift:pick.shift};
   localStorage.setItem(LS, JSON.stringify(sess));
