@@ -33,6 +33,25 @@ from pydantic import BaseModel
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "worktime.db")
 
+# --- DB バックエンド（PostgreSQL 優先 / 無ければ SQLite にフォールバック）---
+# 施設では config_local.py に DB を定義：
+#   DB = {"backend":"postgres","host":"127.0.0.1","port":5432,
+#         "dbname":"worktime","user":"nwt","password":"..."}
+try:
+    from config_local import DB as _DBCFG      # type: ignore
+except Exception:
+    _DBCFG = None
+if _DBCFG is None and os.environ.get("NWT_DB_BACKEND") == "postgres":
+    _DBCFG = {
+        "backend": "postgres",
+        "host": os.environ.get("NWT_DB_HOST", "127.0.0.1"),
+        "port": int(os.environ.get("NWT_DB_PORT", "5432")),
+        "dbname": os.environ.get("NWT_DB_NAME", "worktime"),
+        "user": os.environ.get("NWT_DB_USER", "nwt"),
+        "password": os.environ.get("NWT_DB_PASSWORD", ""),
+    }
+BACKEND = (_DBCFG or {}).get("backend", "sqlite")
+
 # 打刻間隔がこの分数を超えたら「打ち忘れ疑い」として集計から除外できるよう flag を立てる
 MAX_INTERVAL_MIN = 240
 
@@ -168,37 +187,81 @@ for c in CATEGORIES:
         if s.get("ai_tool"):
             SUB_AI[(c["key"], s["key"])] = s["ai_tool"]
 
+# ラベル→キー 逆引き（Excel等がラベルで送ってくる集計エントリをキーに正規化）
+LABEL_TO_CAT = {c["label"]: c["key"] for c in CATEGORIES}
+LABEL_TO_SUB = {(c["key"], s["label"]): s["key"] for c in CATEGORIES for s in c["subs"]}
+
+def resolve_labels(mid_label, sub_label):
+    ck = LABEL_TO_CAT.get((mid_label or "").strip())
+    if ck is None:
+        return None, None
+    return ck, LABEL_TO_SUB.get((ck, (sub_label or "").strip()))
+
 # ---------------------------------------------------------------------------
 # DB
 # ---------------------------------------------------------------------------
+class _PGCur:
+    """psycopg2カーソルを sqlite 風(fetchone/fetchall)に見せる薄いラッパ。"""
+    def __init__(self, cur): self._cur = cur
+    def fetchall(self): return self._cur.fetchall()
+    def fetchone(self): return self._cur.fetchone()
+    def __iter__(self): return iter(self._cur.fetchall())
+
+
+class _Conn:
+    """SQLite / PostgreSQL を同じ conn.execute(sql, params).fetch...() で扱う。"""
+    def __init__(self):
+        if BACKEND == "postgres":
+            import psycopg2, psycopg2.extras
+            self._extras = psycopg2.extras
+            params = {k: _DBCFG[k] for k in ("host", "port", "dbname", "user", "password") if k in _DBCFG}
+            self.raw = psycopg2.connect(**params)
+        else:
+            self.raw = sqlite3.connect(DB_PATH)
+            self.raw.row_factory = sqlite3.Row
+
+    def execute(self, sql, params=()):
+        if BACKEND == "postgres":
+            cur = self.raw.cursor(cursor_factory=self._extras.RealDictCursor)
+            cur.execute(sql.replace("?", "%s"), tuple(params))
+            return _PGCur(cur)
+        return self.raw.execute(sql, params)
+
+    def commit(self): self.raw.commit()
+    def close(self): self.raw.close()
+
+
 def get_conn():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    return _Conn()
 
 
 def init_db():
     with closing(get_conn()) as conn:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS punches (
-                id        INTEGER PRIMARY KEY AUTOINCREMENT,
-                staff_id  TEXT NOT NULL,
-                ward      TEXT NOT NULL,
-                shift     TEXT NOT NULL,
-                category  TEXT NOT NULL,   -- 中分類キー。'END' は記録終了マーカー
-                subcategory TEXT,          -- 小分類キー
-                ts        TEXT NOT NULL,   -- ISO8601 (ローカル時刻)
-                note      TEXT,
-                overtime  INTEGER NOT NULL DEFAULT 0  -- 0=勤務時間内 / 1=勤務時間外
-            )
-            """
-        )
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_staff_ts ON punches(staff_id, ts)")
-        # overtime 列を後から足したため、既存DBには ALTER で追加する
-        cols = {r["name"] for r in conn.execute("PRAGMA table_info(punches)")}
-        if "overtime" not in cols:
-            conn.execute("ALTER TABLE punches ADD COLUMN overtime INTEGER NOT NULL DEFAULT 0")
+        if BACKEND == "postgres":
+            conn.execute("""CREATE TABLE IF NOT EXISTS punches (
+                id SERIAL PRIMARY KEY, staff_id TEXT NOT NULL, ward TEXT NOT NULL, shift TEXT NOT NULL,
+                category TEXT NOT NULL, subcategory TEXT, ts TEXT NOT NULL, note TEXT,
+                overtime BOOLEAN NOT NULL DEFAULT FALSE)""")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_staff_ts ON punches(staff_id, ts)")
+            conn.execute("""CREATE TABLE IF NOT EXISTS entries (
+                id SERIAL PRIMARY KEY, staff_id TEXT NOT NULL, ward TEXT NOT NULL, shift TEXT NOT NULL,
+                work_date TEXT NOT NULL, category TEXT NOT NULL, subcategory TEXT, minutes INTEGER NOT NULL,
+                overtime BOOLEAN NOT NULL DEFAULT FALSE, source TEXT DEFAULT 'excel', batch_id TEXT, created_at TEXT)""")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_entries_date ON entries(work_date)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_entries_batch ON entries(batch_id)")
+        else:
+            conn.execute("""CREATE TABLE IF NOT EXISTS punches (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, staff_id TEXT NOT NULL, ward TEXT NOT NULL, shift TEXT NOT NULL,
+                category TEXT NOT NULL, subcategory TEXT, ts TEXT NOT NULL, note TEXT,
+                overtime INTEGER NOT NULL DEFAULT 0)""")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_staff_ts ON punches(staff_id, ts)")
+            cols = {r["name"] for r in conn.execute("PRAGMA table_info(punches)").fetchall()}
+            if "overtime" not in cols:
+                conn.execute("ALTER TABLE punches ADD COLUMN overtime INTEGER NOT NULL DEFAULT 0")
+            conn.execute("""CREATE TABLE IF NOT EXISTS entries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, staff_id TEXT NOT NULL, ward TEXT NOT NULL, shift TEXT NOT NULL,
+                work_date TEXT NOT NULL, category TEXT NOT NULL, subcategory TEXT, minutes INTEGER NOT NULL,
+                overtime INTEGER NOT NULL DEFAULT 0, source TEXT DEFAULT 'excel', batch_id TEXT, created_at TEXT)""")
         conn.commit()
 
 
@@ -256,12 +319,13 @@ def api_punch(p: Punch):
     with closing(get_conn()) as conn:
         cur = conn.execute(
             "INSERT INTO punches (staff_id, ward, shift, category, subcategory, ts, note, overtime) "
-            "VALUES (?,?,?,?,?,?,?,?)",
+            "VALUES (?,?,?,?,?,?,?,?) RETURNING id",
             (p.staff_id, p.ward, p.shift, p.category, p.subcategory,
-             ts.isoformat(timespec="seconds"), p.note, int(p.overtime)),
+             ts.isoformat(timespec="seconds"), p.note, bool(p.overtime)),
         )
+        row = cur.fetchone()
         conn.commit()
-        pid = cur.lastrowid
+        pid = row["id"] if row else None
     return {"ok": True, "id": pid, "ts": ts.isoformat(timespec="seconds")}
 
 
@@ -274,7 +338,7 @@ def api_end(p: Punch):
             "INSERT INTO punches (staff_id, ward, shift, category, subcategory, ts, note, overtime) "
             "VALUES (?,?,?,?,?,?,?,?)",
             (p.staff_id, p.ward, p.shift, "END", None,
-             ts.isoformat(timespec="seconds"), "記録終了", int(p.overtime)),
+             ts.isoformat(timespec="seconds"), "記録終了", bool(p.overtime)),
         )
         conn.commit()
     return {"ok": True, "ts": ts.isoformat(timespec="seconds")}
@@ -368,6 +432,35 @@ def _load_intervals(where_sql: str, params: list):
     return intervals
 
 
+def _load_entry_intervals(frm, to, ward, shift):
+    """entries（Excel等の集計済み）を、集計に合流できる区間形に変換する。"""
+    where = ["1=1"]; params = []
+    if frm: where.append("work_date >= ?"); params.append(frm)
+    if to:  where.append("work_date <= ?"); params.append(to)
+    if ward: where.append("ward = ?"); params.append(ward)
+    if shift: where.append("shift = ?"); params.append(shift)
+    sql = "SELECT * FROM entries WHERE " + " AND ".join(where)
+    with closing(get_conn()) as conn:
+        rows = conn.execute(sql, params).fetchall()
+    out = []
+    for e in rows:
+        d = (e["work_date"] or "")[:10] + "T00:00:00"
+        out.append({
+            "staff_id": e["staff_id"], "ward": e["ward"], "shift": e["shift"],
+            "category": e["category"], "subcategory": e["subcategory"],
+            "overtime": bool(e["overtime"]),
+            "group": CAT_GROUP.get(e["category"], UNDEFINED_GROUP),
+            "cat_label": CAT_LABEL.get(e["category"], f"未定義({e['category']})"),
+            "sub_label": SUB_LABEL.get((e["category"], e["subcategory"]), f"未定義({e['subcategory']})"),
+            "undefined": (e["category"], e["subcategory"]) not in SUB_LABEL,
+            "ai_tool": SUB_AI.get((e["category"], e["subcategory"]), ""),
+            "start": d, "end": d,
+            "minutes": round(float(e["minutes"] or 0), 1),
+            "suspect": False,
+        })
+    return out
+
+
 def _build_filter(frm, to, ward, shift):
     where = ["1=1"]
     params: list = []
@@ -383,6 +476,45 @@ def _build_filter(frm, to, ward, shift):
     return "WHERE " + " AND ".join(where), params
 
 
+class BulkEntry(BaseModel):
+    staff_id: str
+    ward: str
+    shift: str
+    date: str
+    batch_id: str | None = None
+    rows: list[dict] = []
+
+
+@app.post("/api/entries/bulk")
+def api_entries_bulk(b: BulkEntry):
+    """Excel等からの集計済みエントリを一括投入。同じ batch_id は置き換え（再送で重複しない）。
+    rows 例: [{"mid":"間接看護","sub":"看護記録","in":30,"out":0}, ...]"""
+    batch = b.batch_id or f"{b.staff_id}|{b.ward}|{b.shift}|{b.date}"
+    now = datetime.now().isoformat(timespec="seconds")
+    inserted = 0
+    with closing(get_conn()) as conn:
+        conn.execute("DELETE FROM entries WHERE batch_id=?", (batch,))
+        for r in b.rows:
+            ck, sk = resolve_labels(r.get("mid", ""), r.get("sub", ""))
+            if ck is None:
+                continue
+            for ot, mins in ((False, r.get("in", 0)), (True, r.get("out", 0))):
+                try:
+                    m = int(mins or 0)
+                except (TypeError, ValueError):
+                    m = 0
+                if m <= 0:
+                    continue
+                conn.execute(
+                    "INSERT INTO entries (staff_id,ward,shift,work_date,category,subcategory,minutes,overtime,source,batch_id,created_at) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                    (b.staff_id, b.ward, b.shift, b.date, ck, sk, m, bool(ot), "excel", batch, now),
+                )
+                inserted += 1
+        conn.commit()
+    return {"ok": True, "batch_id": batch, "inserted": inserted}
+
+
 @app.get("/api/summary")
 def api_summary(
     frm: str | None = Query(None, alias="from"),
@@ -393,6 +525,7 @@ def api_summary(
 ):
     where, params = _build_filter(frm, to, ward, shift)
     intervals = _load_intervals(where, params)
+    intervals += _load_entry_intervals(frm, to, ward, shift)   # Excel等の集計も同じ土俵に乗せる
     if not include_suspect:
         intervals = [x for x in intervals if not x["suspect"]]
 

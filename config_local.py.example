@@ -1,0 +1,16 @@
+# config_local.py — 施設固有・非公開（.gitignore 済み。実ファイル名は config_local.py）
+# 病棟名・スタッフIDは公開リポジトリに出さないため、ここに置く。
+WARDS  = ["西6", "東6", "その他"]
+SHIFTS = ["日勤", "夜勤", "早出", "遅出"]
+STAFF  = ["N-01", "N-02", "N-03", "N-04", "N-05"]
+
+# PostgreSQL 接続（Webアプリ・Excel 共通の1つのDB）
+DB = {
+    "backend": "postgres",
+    "host":    "127.0.0.1",
+    "port":    5432,
+    "dbname":  "worktime",
+    "user":    "nwt",
+    "password": "ここにパスワード",
+}
+# ※ backend を外す or "sqlite" にすると従来のSQLite（worktime.db）で動く

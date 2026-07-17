@@ -142,6 +142,10 @@
     background:var(--ink); color:#fff; padding:12px 18px; border-radius:12px; font-weight:700; font-size:14px;
     box-shadow:var(--shadow); opacity:0; transition:opacity .2s; pointer-events:none; z-index:20}
   .toast.show{opacity:1}
+  .vw{margin:14px 0 4px}
+  .list-mid{margin:14px 4px 8px; font-size:13px; font-weight:800; color:#5b6b7a; display:flex; align-items:center; gap:8px}
+  .list-mid .sw{width:11px;height:11px;border-radius:3px;display:inline-block}
+  .more-link{background:none;border:none;color:#0f766e;font-weight:700;font-size:13px;cursor:pointer;padding:0;margin:-4px 0 14px;display:inline-block}
 </style>
 </head>
 <body>
@@ -150,7 +154,7 @@
   <!-- セットアップ -->
   <section id="setup" class="setup hide">
     <h1>記録を始める</h1>
-    <p>担当者・病棟・勤務帯を選んでください。次回から自動で開きます。</p>
+    <p>担当者・病棟を選んでください。勤務帯は前回のまま使えます。次回から自動で開きます。</p>
     <div class="field">
       <label>担当者（匿名ID）</label>
       <div id="staffChips" class="staffgrid"></div>
@@ -159,7 +163,8 @@
       <label>病棟</label>
       <div id="wardChips" class="chips"></div>
     </div>
-    <div class="field">
+    <button type="button" id="moreToggle" class="more-link">▾ 勤務帯を変更</button>
+    <div class="field hide" id="shiftField">
       <label>勤務帯</label>
       <div id="shiftChips" class="chips"></div>
     </div>
@@ -182,7 +187,13 @@
       </div>
     </div>
 
-    <!-- 1段目: 中分類を選ぶ -->
+    <!-- 表示切替: 分類から / 一覧から -->
+    <div class="ot vw" id="viewToggle">
+      <button data-vw="cat" class="sel">分類から選ぶ</button>
+      <button data-vw="list">一覧から選ぶ</button>
+    </div>
+
+    <!-- 1段目: 中分類を選ぶ（分類ビュー） -->
     <div id="catScreen"></div>
 
     <!-- 2段目: 選んだ中分類の小分類だけを出す -->
@@ -193,6 +204,9 @@
       </div>
       <div id="subGrid" class="grid"></div>
     </div>
+
+    <!-- 一覧ビュー: 全小分類を大分類ごとに並べる -->
+    <div id="listScreen" class="hide"></div>
 
     <div class="actions">
       <button class="act undo" id="undoBtn">直前を取り消す</button>
@@ -228,6 +242,8 @@ const OT = "nwt.overtime.v1";
 let CFG = null;
 let sess = JSON.parse(localStorage.getItem(LS) || "null"); // {staff,ward,shift}
 let overtime = JSON.parse(localStorage.getItem(OT) || "false"); // false=勤務時間内 / true=時間外
+const VW = "nwt.view.v1";
+let view = localStorage.getItem(VW) || "cat"; // "cat"=分類から / "list"=一覧から
 let pick = {staff:null, ward:null, shift:null};
 let current = null;      // {label, since}
 let timerHandle = null;
@@ -269,6 +285,8 @@ document.querySelectorAll("#otToggle button").forEach(b=>{
 function showSetup(){
   $("#setup").classList.remove("hide"); $("#main").classList.add("hide");
   pick = Object.assign({staff:null,ward:null,shift:null}, sess||{});
+  if(!pick.shift) pick.shift = CFG.shifts[0];   // 勤務帯は前回値（無ければ先頭）を既定に
+  $("#shiftField").classList.add("hide");        // 勤務帯は隠しておく
   renderChips("#staffChips", CFG.staff, "staff");
   renderChips("#wardChips", CFG.wards, "ward");
   renderChips("#shiftChips", CFG.shifts, "shift");
@@ -284,18 +302,22 @@ function renderChips(sel, items, key){
     box.appendChild(c);
   });
 }
-function validate(){ $("#startBtn").disabled = !(pick.staff&&pick.ward&&pick.shift); }
+function updateMore(){ const el=$("#moreToggle"); if(el) el.textContent = "▾ 勤務帯: " + (pick.shift||"-") + "（変更）"; }
+function validate(){ $("#startBtn").disabled = !(pick.staff&&pick.ward); updateMore(); }
 $("#startBtn").onclick=()=>{
   sess={staff:pick.staff, ward:pick.ward, shift:pick.shift};
   localStorage.setItem(LS, JSON.stringify(sess));
   showMain();
 };
+$("#moreToggle").onclick=()=>{ $("#shiftField").classList.toggle("hide"); };
 
 /* ---------------- 記録画面 ---------------- */
 function showMain(){
   $("#setup").classList.add("hide"); $("#main").classList.remove("hide");
   $("#whoStaff").textContent=sess.staff; $("#whoWard").textContent=sess.ward; $("#whoShift").textContent=sess.shift;
   renderCats();
+  renderList();
+  applyView();
   refreshCurrent();
 }
 $("#changeBtn").onclick=(e)=>{ e.preventDefault(); showSetup(); };
@@ -349,6 +371,50 @@ function showCats(){
 }
 $("#backBtn").onclick=showCats;
 
+/* ---- 表示切替（分類から / 一覧から）---- */
+function paintVw(){ document.querySelectorAll("#viewToggle button").forEach(b=>b.classList.toggle("sel", b.dataset.vw===view)); }
+function applyView(){
+  paintVw();
+  if(view==="list"){
+    $("#catScreen").classList.add("hide"); $("#subScreen").classList.add("hide");
+    $("#listScreen").classList.remove("hide");
+  }else{
+    $("#listScreen").classList.add("hide"); $("#subScreen").classList.add("hide");
+    $("#catScreen").classList.remove("hide");
+  }
+  paintActive();
+}
+document.querySelectorAll("#viewToggle button").forEach(b=>{
+  b.onclick=()=>{ view=b.dataset.vw; localStorage.setItem(VW, view); applyView(); window.scrollTo(0,0); };
+});
+
+/* 一覧ビュー: 全小分類を 大分類→中分類 ごとに並べる */
+function renderList(){
+  const box=$("#listScreen"); box.innerHTML="";
+  let lastGroup=null;
+  CFG.categories.forEach(cat=>{
+    if(cat.group && cat.group!==lastGroup){
+      const gh=document.createElement("div"); gh.className="maj-h"; gh.textContent=cat.group;
+      box.appendChild(gh); lastGroup=cat.group;
+    }
+    const mh=document.createElement("div"); mh.className="list-mid";
+    mh.innerHTML=`<span class="sw" style="background:${cat.color}"></span>${cat.label}`;
+    box.appendChild(mh);
+    const grid=document.createElement("div"); grid.className="grid";
+    cat.subs.forEach(sub=>{
+      const b=document.createElement("button"); b.className="btn"; b.dataset.cat=cat.key; b.dataset.sub=sub.key;
+      b.style.setProperty("--c",cat.color);
+      b.innerHTML = sub.label
+        + (sub.ai_tool?`<span class="ai">${sub.ai_tool}</span>`:"")
+        + (sub.note?`<span class="note">※${sub.note}</span>`:"");
+      b.onclick=()=>punch(cat, sub, b);
+      grid.appendChild(b);
+    });
+    box.appendChild(grid);
+  });
+  paintActive();
+}
+
 function paintActive(){
   document.querySelectorAll(".btn").forEach(b=>{
     const on = current && b.dataset.cat===current.category && b.dataset.sub===current.subcategory;
@@ -378,7 +444,7 @@ async function punch(cat, sub, btn){
   const body={staff_id:sess.staff, ward:sess.ward, shift:sess.shift, category:cat.key, subcategory:sub.key, ts, overtime};
   current={category:cat.key, subcategory:sub.key, label:sub.label, since:ts};
   paintActive(); renderNow();
-  showCats();  // 打刻したら中分類一覧へ戻す。次が別の中分類でもすぐ選べる。
+  // 打刻しても画面は戻さない。押した業務が緑のまま残り、上にタイマーが出る。
   await send("/api/punch", body);
 }
 
