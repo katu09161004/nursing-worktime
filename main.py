@@ -158,6 +158,8 @@ SUB_LABEL = {}
 SUB_AI = {}
 CAT_LABEL = {}
 CAT_GROUP = {}  # 中分類キー → 大分類（A〜D）。集計用紙の見出しに対応する。
+# 区分定義から消えたキーの打刻は、ここにまとめて「未定義」として可視化する
+UNDEFINED_GROUP = "※ 定義外（区分変更前の記録）"
 for c in CATEGORIES:
     CAT_LABEL[c["key"]] = c["label"]
     CAT_GROUP[c["key"]] = c.get("group", "")
@@ -349,9 +351,14 @@ def _load_intervals(where_sql: str, params: list):
                 "category": cur["category"],
                 "subcategory": cur["subcategory"],
                 "overtime": bool(cur["overtime"]),
-                "group": CAT_GROUP.get(cur["category"], ""),
-                "cat_label": CAT_LABEL.get(cur["category"], cur["category"]),
-                "sub_label": SUB_LABEL.get((cur["category"], cur["subcategory"]), ""),
+                # 区分定義を変えると、それ以前の打刻のキーが CATEGORIES から消える。
+                # 黙ってラベル空欄で混ぜず、「未定義」と分かる形で出す。
+                "group": CAT_GROUP.get(cur["category"], UNDEFINED_GROUP),
+                "cat_label": CAT_LABEL.get(cur["category"], f"未定義({cur['category']})"),
+                "sub_label": SUB_LABEL.get(
+                    (cur["category"], cur["subcategory"]), f"未定義({cur['subcategory']})"
+                ),
+                "undefined": (cur["category"], cur["subcategory"]) not in SUB_LABEL,
                 "ai_tool": SUB_AI.get((cur["category"], cur["subcategory"]), ""),
                 "start": cur["ts"],
                 "end": nxt["ts"],
