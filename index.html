@@ -2,179 +2,316 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>看護業務量調査ツール ｜ プレビュー</title>
-<meta name="description" content="看護業務にかかる時間を『ボタン1タップ』で記録し、AI導入前後の効果測定ベースラインを取るためのオンプレ完結型ツール。">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>看護業務量調査</title>
+<meta name="theme-color" content="#0f766e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="業務量調査">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
 <style>
   :root{
-    --bg:#f6f8f9; --panel:#fff; --ink:#0f172a; --muted:#5b6b7a; --line:#e2e8ee;
-    --accent:#0f766e; --accent-d:#0b5a54; --ai:#b45309;
-    --shadow:0 1px 2px rgba(15,23,42,.05),0 10px 30px rgba(15,23,42,.07);
+    --bg:#eef2f4; --panel:#ffffff; --ink:#0f172a; --muted:#64748b;
+    --line:#dbe3e8; --accent:#0f766e; --danger:#b91c1c; --warn:#b45309;
+    --shadow:0 1px 2px rgba(15,23,42,.06), 0 6px 18px rgba(15,23,42,.06);
   }
-  *{box-sizing:border-box}
-  body{margin:0;font-family:-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;
-       color:var(--ink);background:var(--bg);line-height:1.75;-webkit-font-smoothing:antialiased}
-  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
-  a{color:var(--accent)}
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0}
+  body{
+    font-family:-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;
+    background:var(--bg); color:var(--ink);
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  .wrap{max-width:760px; margin:0 auto; padding:12px 12px 40px}
 
-  /* hero */
-  header{background:linear-gradient(160deg,#0f766e,#0b5a54);color:#fff;padding:56px 0 48px}
-  header .wrap{display:flex;flex-direction:column;gap:6px}
-  .eyebrow{font-size:12px;font-weight:800;letter-spacing:.14em;opacity:.85;text-transform:uppercase}
-  h1{font-size:32px;line-height:1.3;margin:6px 0 4px;letter-spacing:.01em}
-  .lead{font-size:16px;opacity:.94;max-width:640px}
-  .cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:22px}
-  .btn{display:inline-flex;align-items:center;gap:8px;padding:13px 22px;border-radius:12px;font-weight:800;
-       font-size:15px;text-decoration:none;transition:transform .06s}
-  .btn:active{transform:scale(.98)}
-  .btn.primary{background:#fff;color:var(--accent-d)}
-  .btn.ghost{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.4)}
-  .demo-note{font-size:12px;opacity:.8;margin-top:12px}
+  /* ---- 現在の記録バナー ---- */
+  .now{
+    position:sticky; top:8px; z-index:5;
+    background:var(--panel); border:1px solid var(--line); border-radius:16px;
+    box-shadow:var(--shadow); padding:14px 16px; margin-bottom:14px;
+  }
+  .now-top{display:flex; justify-content:space-between; align-items:center; gap:10px}
+  .who{font-size:13px; color:var(--muted); font-weight:600}
+  .who b{color:var(--ink)}
+  .now-body{display:flex; align-items:baseline; gap:12px; margin-top:8px; flex-wrap:wrap}
+  .now-label{font-size:22px; font-weight:800; letter-spacing:.01em}
+  .now-idle{color:var(--muted); font-weight:700}
+  .now-timer{font-variant-numeric:tabular-nums; font-size:20px; font-weight:700; color:var(--accent)}
+  .now-since{font-size:12px; color:var(--muted)}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);display:inline-block;margin-right:6px;
+       box-shadow:0 0 0 0 rgba(15,118,110,.5); animation:pulse 2s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(15,118,110,.45)}70%{box-shadow:0 0 0 10px rgba(15,118,110,0)}100%{box-shadow:0 0 0 0 rgba(15,118,110,0)}}
 
-  section{padding:44px 0}
-  h2{font-size:21px;margin:0 0 14px;letter-spacing:.01em}
-  h2 .bar{display:inline-block;width:6px;height:20px;background:var(--accent);border-radius:3px;
-          margin-right:10px;vertical-align:-3px}
-  p.big{font-size:16px;color:#334155;max-width:720px}
+  /* ---- カテゴリ ---- */
+  .group{margin:16px 0}
+  .group-h{display:flex; align-items:center; gap:8px; margin:0 4px 8px; font-size:13px; font-weight:800; color:var(--muted)}
+  .swatch{width:12px;height:12px;border-radius:3px}
+  .grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px}
+  @media(min-width:560px){.grid{grid-template-columns:repeat(3,1fr)}}
+  .btn{
+    appearance:none; border:1px solid var(--line); background:var(--panel);
+    border-radius:14px; padding:18px 14px; min-height:76px; font-size:16px; font-weight:700;
+    color:var(--ink); text-align:left; line-height:1.35; box-shadow:var(--shadow);
+    display:flex; flex-direction:column; justify-content:center; gap:4px; cursor:pointer;
+    transition:transform .05s ease, box-shadow .1s ease;
+  }
+  .btn:active{transform:scale(.97)}
+  .btn.on{color:#fff; border-color:transparent}
+  .btn .ai{font-size:11px; font-weight:800; opacity:.85}
+  .btn .ai::before{content:"AI "; }
+  .btn.on .ai{opacity:.95}
 
-  .shots{display:grid;grid-template-columns:1fr;gap:22px;margin-top:8px}
-  @media(min-width:720px){.shots{grid-template-columns:300px 1fr;align-items:start}}
-  figure{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:16px;
-         box-shadow:var(--shadow);overflow:hidden}
-  figure img{display:block;width:100%}
-  figcaption{padding:10px 14px;font-size:12.5px;color:var(--muted)}
+  /* ---- 下部操作 ---- */
+  .actions{display:flex; gap:10px; margin-top:22px}
+  .act{
+    flex:1; border-radius:14px; padding:16px; font-size:15px; font-weight:800; cursor:pointer;
+    border:1px solid var(--line); background:var(--panel); color:var(--ink); box-shadow:var(--shadow);
+  }
+  .act.end{background:var(--ink); color:#fff; border-color:transparent}
+  .act.undo{color:var(--danger)}
+  .foot{display:flex; justify-content:space-between; align-items:center; margin-top:18px; font-size:12px; color:var(--muted)}
+  .link{color:var(--accent); font-weight:700; text-decoration:none}
+  .queue{color:var(--warn); font-weight:700}
 
-  .feat{display:grid;grid-template-columns:1fr;gap:14px;margin-top:6px}
-  @media(min-width:640px){.feat{grid-template-columns:1fr 1fr}}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;box-shadow:var(--shadow)}
-  .card h3{margin:0 0 4px;font-size:15px}
-  .card p{margin:0;font-size:13.5px;color:var(--muted)}
-  .card .k{display:inline-block;font-size:11px;font-weight:800;color:var(--accent);
-           background:#e6f4f2;border-radius:6px;padding:2px 8px;margin-bottom:8px}
+  /* ---- セットアップ画面 ---- */
+  .setup{background:var(--panel); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow); padding:20px}
+  .setup h1{font-size:18px; margin:0 0 4px}
+  .setup p{color:var(--muted); margin:0 0 18px; font-size:13px}
+  .field{margin-bottom:16px}
+  .field label{display:block; font-size:13px; font-weight:800; margin-bottom:8px; color:var(--muted)}
+  .chips{display:flex; flex-wrap:wrap; gap:8px}
+  .chip{border:1px solid var(--line); background:#fff; border-radius:999px; padding:9px 14px; font-size:14px; font-weight:700; cursor:pointer}
+  .chip.sel{background:var(--accent); color:#fff; border-color:transparent}
+  .staffgrid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px}
+  .staffgrid .chip{text-align:center}
+  .start{width:100%; margin-top:6px; padding:16px; border:none; border-radius:14px; background:var(--ink); color:#fff; font-size:16px; font-weight:800; cursor:pointer}
+  .start:disabled{opacity:.4}
+  .hide{display:none}
 
-  .ai-note{background:#fffaf1;border:1px solid #f0d9b8;border-radius:14px;padding:18px 20px;margin-top:8px}
-  .ai-note b{color:var(--ai)}
-
-  .steps{counter-reset:s;margin:8px 0 0;padding:0;list-style:none}
-  .steps li{counter-increment:s;position:relative;padding:8px 0 8px 42px;font-size:15px}
-  .steps li::before{content:counter(s);position:absolute;left:0;top:8px;width:28px;height:28px;border-radius:50%;
-    background:var(--accent);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:13px}
-
-  .tech{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
-  .tag{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:13px;font-weight:700}
-
-  footer{border-top:1px solid var(--line);padding:26px 0 50px;color:var(--muted);font-size:13px}
-  footer .wrap{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between}
+  .toast{position:fixed; left:50%; bottom:24px; transform:translateX(-50%);
+    background:var(--ink); color:#fff; padding:12px 18px; border-radius:12px; font-weight:700; font-size:14px;
+    box-shadow:var(--shadow); opacity:0; transition:opacity .2s; pointer-events:none; z-index:20}
+  .toast.show{opacity:1}
 </style>
 </head>
 <body>
+<div class="wrap">
 
-<header>
-  <div class="wrap">
-    <div class="eyebrow">Nursing Workload Logger</div>
-    <h1>看護業務量調査ツール</h1>
-    <p class="lead">看護業務にかかる時間を <b>「ボタン1タップ」</b> で記録し、
-      AI（音声記録・退院時サマリー・議事録）導入の<b>前後で効果を測る基準値</b>を集めるための、
-      オンプレ完結・PHIを扱わないツールです。</p>
-    <div class="cta">
-      <a class="btn primary" href="./demo.html">▶ 記録画面をさわる（デモ）</a>
-      <a class="btn ghost" href="./demo-dashboard.html">集計ダッシュボード（デモ）</a>
+  <!-- セットアップ -->
+  <section id="setup" class="setup hide">
+    <h1>記録を始める</h1>
+    <p>担当者・病棟・勤務帯を選んでください。次回から自動で開きます。</p>
+    <div class="field">
+      <label>担当者（匿名ID）</label>
+      <div id="staffChips" class="staffgrid"></div>
     </div>
-    <div class="demo-note">※デモはブラウザ内だけで動作します。サーバ送信・保存はされません。</div>
-  </div>
-</header>
-
-<section>
-  <div class="wrap">
-    <h2><span class="bar"></span>何をするツールか</h2>
-    <p class="big">看護師は「今やっている業務」のボタンを押すだけ。次のタップまでの時間が、その業務の
-      所要時間として自動で記録されます。「開始／終了」の2度押しは不要。集めたデータは、
-      <b>AI導入前後の比較ベースライン</b>と<b>多職種協働加算のエビデンス</b>の両方に使えます。</p>
-  </div>
-</section>
-
-<section style="background:#eef2f4">
-  <div class="wrap">
-    <h2><span class="bar"></span>画面</h2>
-    <div class="shots">
-      <figure>
-        <img src="./shots/recording.png" alt="記録画面">
-        <figcaption>記録画面（モバイル）。上部に「今の業務」と経過時間、押した業務が色付きになる。</figcaption>
-      </figure>
-      <figure>
-        <img src="./shots/dashboard.png" alt="集計ダッシュボード">
-        <figcaption>集計ダッシュボード。最上部に AI 効果測定対象業務の「分／シフト」がベースラインとして並ぶ。</figcaption>
-      </figure>
+    <div class="field">
+      <label>病棟</label>
+      <div id="wardChips" class="chips"></div>
     </div>
-  </div>
-</section>
-
-<section>
-  <div class="wrap">
-    <h2><span class="bar"></span>特長</h2>
-    <div class="feat">
-      <div class="card"><span class="k">低負担</span><h3>ワンタップ記録</h3>
-        <p>業務が切り替わるたびにボタンを1回押すだけ。所要時間は自動算出。</p></div>
-      <div class="card"><span class="k">現場対応</span><h3>オフライン退避</h3>
-        <p>WiFiが切れても端末内に一時保存し、復帰時に自動再送。記録が消えない。</p></div>
-      <div class="card"><span class="k">目的直結</span><h3>AIベースライン自動集計</h3>
-        <p>SOAP入力・サマリー・カンファレンスを対象区分として分離し「分／シフト」で表示。</p></div>
-      <div class="card"><span class="k">安全</span><h3>PHIを扱わない</h3>
-        <p>記録するのは業務区分と時刻だけ。担当者は匿名ID。患者情報は一切入力しない設計。</p></div>
-      <div class="card"><span class="k">自己完結</span><h3>オンプレ／外部通信なし</h3>
-        <p>FastAPI + SQLite。院内サーバ1台で完結。データは1ファイルでバックアップ可。</p></div>
-      <div class="card"><span class="k">運用性</span><h3>モバイル＆常駐化</h3>
-        <p>ブラウザで開くだけ、ホーム画面追加でアプリ風。systemdで常駐。</p></div>
+    <div class="field">
+      <label>勤務帯</label>
+      <div id="shiftChips" class="chips"></div>
     </div>
-  </div>
-</section>
+    <button id="startBtn" class="start" disabled>この設定で記録を始める</button>
+  </section>
 
-<section style="background:#eef2f4">
-  <div class="wrap">
-    <h2><span class="bar"></span>AI効果測定への使い方</h2>
-    <div class="ai-note">
-      <p style="margin:0 0 8px"><b>導入前</b>に2〜4週間記録し、対象業務の「分／シフト」を確定（＝ベースライン）。</p>
-      <p style="margin:0 0 8px"><b>導入後</b>、同じ期間・病棟・勤務帯で再度記録。</p>
-      <p style="margin:0">2つの「分／シフト」の差分＝削減時間。のべ勤務数と人件費を掛ければ金額換算まで一直線。
-        同じ1回の調査で「効果測定」と「加算エビデンス」の両方を賄えます。</p>
+  <!-- 記録画面 -->
+  <section id="main" class="hide">
+    <div class="now">
+      <div class="now-top">
+        <div class="who">担当 <b id="whoStaff">-</b> ／ <b id="whoWard">-</b> ／ <b id="whoShift">-</b></div>
+        <a href="#" id="changeBtn" class="link">担当変更</a>
+      </div>
+      <div class="now-body" id="nowBody">
+        <span class="now-idle">記録待機中 — 業務ボタンを押してください</span>
+      </div>
     </div>
-  </div>
-</section>
 
-<section>
-  <div class="wrap">
-    <h2><span class="bar"></span>使い方（看護師）</h2>
-    <ol class="steps">
-      <li>ブラウザで記録画面を開く（ホーム画面に追加しておくと便利）。</li>
-      <li>最初に担当者・病棟・勤務帯を選ぶ（初回だけ）。</li>
-      <li>業務を始めるたびに、その区分ボタンを1タップ。</li>
-      <li>勤務の終わりに「記録終了」。押し間違いは「直前を取り消す」。</li>
-    </ol>
-  </div>
-</section>
+    <div id="groups"></div>
 
-<section style="background:#eef2f4">
-  <div class="wrap">
-    <h2><span class="bar"></span>技術構成</h2>
-    <div class="tech">
-      <span class="tag">Python / FastAPI</span>
-      <span class="tag">SQLite</span>
-      <span class="tag">Vanilla JS（依存なし）</span>
-      <span class="tag">systemd 常駐</span>
-      <span class="tag">PWA（ホーム画面追加）</span>
-      <span class="tag">オフライン退避（localStorage）</span>
+    <div class="actions">
+      <button class="act undo" id="undoBtn">直前を取り消す</button>
+      <button class="act end" id="endBtn">記録終了</button>
     </div>
-    <p class="big" style="margin-top:14px">導入手順は <a href="https://github.com/katu09161004/nursing-worktime/blob/main/INSTALL.md">INSTALL.md</a>、
-      モバイル接続は <a href="https://github.com/katu09161004/nursing-worktime/blob/main/DEPLOY-mobile.md">DEPLOY-mobile.md</a> を参照。</p>
-  </div>
-</section>
 
-<footer>
-  <div class="wrap">
-    <div>看護業務量調査ツール — オンプレ完結・PHIレスの業務量ロガー</div>
-    <div><a href="https://github.com/katu09161004/nursing-worktime">GitHub リポジトリ</a> ・ MIT License</div>
-  </div>
-</footer>
+    <div class="foot">
+      <a class="link" href="./demo-dashboard.html" target="_blank">集計ダッシュボード →</a>
+      <span id="queueInfo" class="queue"></span>
+    </div>
+  </section>
 
+</div>
+
+<div id="toast" class="toast"></div>
+
+
+<script>
+const LS = "nwt.session.v1";
+const OUTBOX = "nwt.outbox.v1";
+let CFG = null;
+let sess = JSON.parse(localStorage.getItem(LS) || "null"); // {staff,ward,shift}
+let pick = {staff:null, ward:null, shift:null};
+let current = null;      // {label, since}
+let timerHandle = null;
+
+const $ = s => document.querySelector(s);
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1600); }
+
+async function boot(){
+  CFG = await (await fetch("/api/config")).json();
+  if(sess && sess.staff){ showMain(); } else { showSetup(); }
+  flushOutbox();
+  setInterval(flushOutbox, 15000);
+}
+
+/* ---------------- セットアップ ---------------- */
+function showSetup(){
+  $("#setup").classList.remove("hide"); $("#main").classList.add("hide");
+  pick = Object.assign({staff:null,ward:null,shift:null}, sess||{});
+  renderChips("#staffChips", CFG.staff, "staff");
+  renderChips("#wardChips", CFG.wards, "ward");
+  renderChips("#shiftChips", CFG.shifts, "shift");
+  validate();
+}
+function renderChips(sel, items, key){
+  const box = $(sel); box.innerHTML="";
+  items.forEach(v=>{
+    const c=document.createElement("div");
+    c.className="chip"+(pick[key]===v?" sel":"");
+    c.textContent=v;
+    c.onclick=()=>{ pick[key]=v; renderChips(sel,items,key); validate(); };
+    box.appendChild(c);
+  });
+}
+function validate(){ $("#startBtn").disabled = !(pick.staff&&pick.ward&&pick.shift); }
+$("#startBtn").onclick=()=>{
+  sess={staff:pick.staff, ward:pick.ward, shift:pick.shift};
+  localStorage.setItem(LS, JSON.stringify(sess));
+  showMain();
+};
+
+/* ---------------- 記録画面 ---------------- */
+function showMain(){
+  $("#setup").classList.add("hide"); $("#main").classList.remove("hide");
+  $("#whoStaff").textContent=sess.staff; $("#whoWard").textContent=sess.ward; $("#whoShift").textContent=sess.shift;
+  renderGroups();
+  refreshCurrent();
+}
+$("#changeBtn").onclick=(e)=>{ e.preventDefault(); showSetup(); };
+
+function renderGroups(){
+  const box=$("#groups"); box.innerHTML="";
+  CFG.categories.forEach(cat=>{
+    const g=document.createElement("div"); g.className="group";
+    const h=document.createElement("div"); h.className="group-h";
+    h.innerHTML=`<span class="swatch" style="background:${cat.color}"></span>${cat.label}`;
+    g.appendChild(h);
+    const grid=document.createElement("div"); grid.className="grid";
+    cat.subs.forEach(sub=>{
+      const b=document.createElement("button"); b.className="btn"; b.dataset.cat=cat.key; b.dataset.sub=sub.key;
+      b.style.setProperty("--c",cat.color);
+      b.innerHTML = sub.label + (sub.ai_tool?`<span class="ai">${sub.ai_tool}</span>`:"");
+      b.onclick=()=>punch(cat, sub, b);
+      grid.appendChild(b);
+    });
+    g.appendChild(grid); box.appendChild(g);
+  });
+  paintActive();
+}
+
+function paintActive(){
+  document.querySelectorAll(".btn").forEach(b=>{
+    const on = current && b.dataset.cat===current.category && b.dataset.sub===current.subcategory;
+    b.classList.toggle("on", !!on);
+    b.style.background = on ? getColor(b.dataset.cat) : "";
+  });
+}
+function getColor(catKey){ const c=CFG.categories.find(x=>x.key===catKey); return c?c.color:"#0f766e"; }
+
+async function punch(cat, sub, btn){
+  const ts=new Date().toISOString();
+  const body={staff_id:sess.staff, ward:sess.ward, shift:sess.shift, category:cat.key, subcategory:sub.key, ts};
+  current={category:cat.key, subcategory:sub.key, label:sub.label, since:ts};
+  paintActive(); renderNow();
+  await send("/api/punch", body);
+}
+
+$("#endBtn").onclick=async ()=>{
+  const ts=new Date().toISOString();
+  await send("/api/end", {staff_id:sess.staff, ward:sess.ward, shift:sess.shift, category:"END", ts});
+  current=null; paintActive(); renderNow(); toast("記録を終了しました");
+};
+
+$("#undoBtn").onclick=async ()=>{
+  try{
+    const r=await fetch("/api/undo?staff_id="+encodeURIComponent(sess.staff), {method:"POST"});
+    if(!r.ok) throw 0;
+    toast("直前の打刻を取り消しました");
+    await refreshCurrent();
+  }catch(e){ toast("取り消せませんでした"); }
+};
+
+async function refreshCurrent(){
+  try{
+    const r=await fetch("/api/current?staff_id="+encodeURIComponent(sess.staff));
+    const d=await r.json();
+    current = d.active ? {category:d.category, subcategory:d.subcategory, label:d.label, since:d.since} : null;
+  }catch(e){ /* オフライン時は直近のローカル状態を維持 */ }
+  paintActive(); renderNow();
+}
+
+/* ---- 現在バナー + 経過タイマー ---- */
+function renderNow(){
+  const body=$("#nowBody");
+  if(!current){ body.innerHTML=`<span class="now-idle">記録待機中 — 業務ボタンを押してください</span>`; stopTimer(); return; }
+  body.innerHTML=`<span class="now-label"><span class="dot"></span>${current.label}</span>
+                  <span class="now-timer" id="elapsed">0分</span>
+                  <span class="now-since">開始 ${fmt(current.since)}</span>`;
+  startTimer();
+}
+function startTimer(){ stopTimer(); tick(); timerHandle=setInterval(tick,10000); }
+function stopTimer(){ if(timerHandle){clearInterval(timerHandle); timerHandle=null;} }
+function tick(){
+  const el=$("#elapsed"); if(!el||!current) return;
+  const min=Math.max(0, Math.round((Date.now()-new Date(current.since))/60000));
+  el.textContent = min<60 ? `${min}分` : `${Math.floor(min/60)}時間${min%60}分`;
+}
+function fmt(iso){ const d=new Date(iso); return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
+
+/* ---- 送信 + オフライン退避 ---- */
+async function send(url, body){
+  try{
+    const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    if(!r.ok) throw 0;
+  }catch(e){
+    const ob=JSON.parse(localStorage.getItem(OUTBOX)||"[]");
+    ob.push({url, body}); localStorage.setItem(OUTBOX, JSON.stringify(ob));
+    updateQueue();
+  }
+}
+async function flushOutbox(){
+  let ob=JSON.parse(localStorage.getItem(OUTBOX)||"[]");
+  if(!ob.length){ updateQueue(); return; }
+  const rest=[];
+  for(const item of ob){
+    try{
+      const r=await fetch(item.url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(item.body)});
+      if(!r.ok) throw 0;
+    }catch(e){ rest.push(item); }
+  }
+  localStorage.setItem(OUTBOX, JSON.stringify(rest));
+  updateQueue();
+}
+function updateQueue(){
+  const ob=JSON.parse(localStorage.getItem(OUTBOX)||"[]");
+  $("#queueInfo").textContent = ob.length ? `未送信 ${ob.length}件（自動再送）` : "";
+}
+
+boot();
+</script>
 </body>
 </html>

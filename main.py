@@ -13,7 +13,7 @@ PHIは一切扱わない。記録するのは業務区分と時刻のみ。
 スタッフは匿名ID（例: N-01）で識別する。
 
 依存: fastapi, uvicorn （SQLiteは標準ライブラリ）
-起動: uvicorn main:app --host 0.0.0.0 --port 8300
+起動: uvicorn main:app --host 0.0.0.0 --port 8301
 """
 
 import csv
@@ -165,12 +165,22 @@ class Punch(BaseModel):
 
 
 def parse_ts(value: str | None) -> datetime:
+    """クライアントの打刻時刻を、DB保存形式（ローカル時刻・tz無し）に正規化する。
+
+    ブラウザは toISOString() で UTC の "Z" 付きを送ってくる。Python 3.10 の
+    fromisoformat は "Z" を解釈できないため、"+00:00" に直してから解析し、
+    ローカル時刻に変換して tz を落とす。ここで取りこぼすと、オフライン退避
+    された打刻が「再送した時刻」に化けて所要時間が壊れる。
+    """
     if not value:
         return datetime.now()
     try:
-        return datetime.fromisoformat(value)
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return datetime.now()
+    if dt.tzinfo is not None:
+        dt = dt.astimezone().replace(tzinfo=None)
+    return dt
 
 
 @app.get("/api/config")

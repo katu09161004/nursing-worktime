@@ -1,0 +1,19 @@
+# 施設固有値（病棟名・スタッフID等）。public repo に出さない
+config_local.py
+
+# 記録データ（打刻ログ）
+worktime.db
+worktime.db-journal
+worktime.db-wal
+worktime.db-shm
+
+# 作業用引き継ぎ書
+claude.md
+CLAUDE.md
+HANDOFF.md
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]

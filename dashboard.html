@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>集計ダッシュボード｜看護業務量調査</title>
+<link rel="icon" href="/icons/icon-192.png">
+<style>
+  :root{
+    --bg:#eef2f4; --panel:#fff; --ink:#0f172a; --muted:#64748b; --line:#dbe3e8;
+    --accent:#0f766e; --ai:#b45309; --shadow:0 1px 2px rgba(15,23,42,.05),0 6px 18px rgba(15,23,42,.06);
+  }
+  *{box-sizing:border-box}
+  body{margin:0; font-family:-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;
+       background:var(--bg); color:var(--ink)}
+  .wrap{max-width:960px; margin:0 auto; padding:20px 16px 60px}
+  h1{font-size:20px; margin:0 0 2px}
+  .sub{color:var(--muted); font-size:13px; margin:0 0 18px}
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow); padding:18px 20px; margin-bottom:16px}
+  .card h2{font-size:14px; margin:0 0 14px; color:var(--muted); font-weight:800; letter-spacing:.02em}
+
+  /* filters */
+  .filters{display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end}
+  .f label{display:block; font-size:11px; font-weight:800; color:var(--muted); margin-bottom:5px}
+  .f input,.f select{padding:9px 11px; border:1px solid var(--line); border-radius:10px; font-size:14px; background:#fff}
+  .btnrow{display:flex; gap:8px; margin-left:auto}
+  .b{padding:9px 16px; border-radius:10px; border:1px solid var(--line); background:#fff; font-weight:700; font-size:14px; cursor:pointer}
+  .b.primary{background:var(--ink); color:#fff; border-color:transparent}
+
+  .meta{display:flex; gap:22px; flex-wrap:wrap; margin-bottom:4px}
+  .meta div{font-size:13px; color:var(--muted)}
+  .meta b{font-size:20px; color:var(--ink); font-variant-numeric:tabular-nums; margin-right:4px}
+
+  /* AI baseline */
+  .ai-card{border:1px solid #f0d9b8; background:linear-gradient(180deg,#fffaf1,#ffffff)}
+  .ai-card h2{color:var(--ai)}
+  .ai-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px}
+  .ai-item{border:1px solid #f0d9b8; border-radius:14px; padding:14px 16px; background:#fff}
+  .ai-tool{font-size:11px; font-weight:800; color:var(--ai); letter-spacing:.02em}
+  .ai-name{font-size:14px; font-weight:800; margin:2px 0 10px}
+  .ai-big{font-size:30px; font-weight:800; font-variant-numeric:tabular-nums; line-height:1}
+  .ai-unit{font-size:12px; color:var(--muted); font-weight:700}
+  .ai-sup{font-size:12px; color:var(--muted); margin-top:6px}
+
+  /* bars */
+  .bar{display:flex; align-items:center; gap:12px; margin:9px 0}
+  .bar .name{width:120px; font-size:13px; font-weight:700; flex:none}
+  .bar .track{flex:1; background:#f1f5f7; border-radius:8px; height:22px; overflow:hidden}
+  .bar .fill{height:100%; border-radius:8px}
+  .bar .val{width:96px; text-align:right; font-size:13px; font-variant-numeric:tabular-nums; color:var(--muted); flex:none}
+
+  table{width:100%; border-collapse:collapse; font-size:13px}
+  th,td{padding:9px 10px; text-align:left; border-bottom:1px solid var(--line)}
+  th{color:var(--muted); font-size:11px; font-weight:800}
+  td.num,th.num{text-align:right; font-variant-numeric:tabular-nums}
+  .tag{display:inline-block; font-size:10px; font-weight:800; color:var(--ai); background:#fdf3e3; border-radius:6px; padding:2px 7px}
+  .empty{color:var(--muted); font-size:14px; padding:20px 0; text-align:center}
+  a.back{color:var(--accent); text-decoration:none; font-weight:700; font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="/">← 記録画面へ</a>
+  <h1 style="margin-top:10px">集計ダッシュボード</h1>
+  <p class="sub">AI導入前後の比較ベースライン／多職種協働加算エビデンス用</p>
+
+  <div class="card">
+    <div class="filters">
+      <div class="f"><label>開始日</label><input type="date" id="from"></div>
+      <div class="f"><label>終了日</label><input type="date" id="to"></div>
+      <div class="f"><label>病棟</label><select id="ward"><option value="">すべて</option></select></div>
+      <div class="f"><label>勤務帯</label><select id="shift"><option value="">すべて</option></select></div>
+      <div class="f"><label><input type="checkbox" id="susp"> 打ち忘れ疑いも含める</label></div>
+      <div class="btnrow">
+        <button class="b primary" id="apply">集計</button>
+        <button class="b" id="csv">CSV出力</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="meta">
+      <div><b id="mSessions">–</b>のべ勤務数</div>
+      <div><b id="mTotal">–</b>総記録時間(時)</div>
+      <div><b id="mIntervals">–</b>記録区間数</div>
+    </div>
+    <p class="sub" style="margin:6px 0 0">「1シフトあたり」= 総時間 ÷ のべ勤務数。同一値を導入後にも算出すれば差分がAI効果になります。</p>
+  </div>
+
+  <div class="card ai-card">
+    <h2>★ AI効果測定ベースライン（対象業務の1シフトあたり所要時間）</h2>
+    <div id="aiGrid" class="ai-grid"></div>
+  </div>
+
+  <div class="card">
+    <h2>大区分別 時間配分</h2>
+    <div id="catBars"></div>
+  </div>
+
+  <div class="card">
+    <h2>小区分別 明細</h2>
+    <table>
+      <thead><tr>
+        <th>大区分</th><th>小区分</th>
+        <th class="num">合計(分)</th><th class="num">1シフト(分)</th>
+        <th class="num">回数</th><th class="num">割合</th>
+      </tr></thead>
+      <tbody id="subRows"></tbody>
+    </table>
+    <div id="subEmpty" class="empty" style="display:none">データがありません。記録画面で打刻するとここに集計されます。</div>
+  </div>
+</div>
+
+
+<script>
+const $=s=>document.querySelector(s);
+const CATCOLORS={};
+
+async function init(){
+  const cfg=await (await fetch("/api/config")).json();
+  cfg.wards.forEach(w=>$("#ward").insertAdjacentHTML("beforeend",`<option>${w}</option>`));
+  cfg.shifts.forEach(s=>$("#shift").insertAdjacentHTML("beforeend",`<option>${s}</option>`));
+  cfg.categories.forEach(c=>CATCOLORS[c.key]=c.color);
+  // 既定: 直近14日
+  const today=new Date(); const past=new Date(Date.now()-13*864e5);
+  $("#to").value=iso(today); $("#from").value=iso(past);
+  load();
+}
+function iso(d){return d.toISOString().slice(0,10);}
+
+function qs(){
+  const p=new URLSearchParams();
+  if($("#from").value)p.set("from",$("#from").value);
+  if($("#to").value)p.set("to",$("#to").value);
+  if($("#ward").value)p.set("ward",$("#ward").value);
+  if($("#shift").value)p.set("shift",$("#shift").value);
+  if($("#susp").checked)p.set("include_suspect","true");
+  return p.toString();
+}
+
+async function load(){
+  const d=await (await fetch("/api/summary?"+qs())).json();
+  $("#mSessions").textContent=d.n_sessions;
+  $("#mTotal").textContent=(d.total_minutes/60).toFixed(1);
+  $("#mIntervals").textContent=d.n_intervals;
+
+  // AIベースライン
+  const g=$("#aiGrid"); g.innerHTML="";
+  if(!d.ai_baseline.length){ g.innerHTML=`<div class="empty">対象業務の記録がまだありません</div>`; }
+  d.ai_baseline.forEach(a=>{
+    g.insertAdjacentHTML("beforeend",`
+      <div class="ai-item">
+        <div class="ai-tool">${a.ai_tool}</div>
+        <div class="ai-name">${a.sub_label}</div>
+        <div><span class="ai-big">${a.min_per_session}</span> <span class="ai-unit">分/シフト</span></div>
+        <div class="ai-sup">合計 ${a.minutes}分 ・ ${a.count}回 ・ 全体の${a.pct}%</div>
+      </div>`);
+  });
+
+  // 大区分バー
+  const cb=$("#catBars"); cb.innerHTML="";
+  const max=Math.max(...d.categories.map(c=>c.minutes),1);
+  d.categories.forEach(c=>{
+    const w=Math.round(c.minutes/max*100);
+    cb.insertAdjacentHTML("beforeend",`
+      <div class="bar">
+        <div class="name">${c.cat_label}</div>
+        <div class="track"><div class="fill" style="width:${w}%;background:${CATCOLORS[c.category]||'#0f766e'}"></div></div>
+        <div class="val">${c.minutes}分 (${c.pct}%)</div>
+      </div>`);
+  });
+  if(!d.categories.length) cb.innerHTML=`<div class="empty">データがありません</div>`;
+
+  // 小区分テーブル
+  const tb=$("#subRows"); tb.innerHTML="";
+  d.subcategories.forEach(s=>{
+    tb.insertAdjacentHTML("beforeend",`
+      <tr>
+        <td>${s.cat_label}</td>
+        <td>${s.sub_label} ${s.ai_tool?`<span class="tag">${s.ai_tool}</span>`:""}</td>
+        <td class="num">${s.minutes}</td>
+        <td class="num">${s.min_per_session}</td>
+        <td class="num">${s.count}</td>
+        <td class="num">${s.pct}%</td>
+      </tr>`);
+  });
+  $("#subEmpty").style.display = d.subcategories.length ? "none":"block";
+}
+
+$("#apply").onclick=load;
+$("#csv").onclick=()=>{ location.href="/api/export.csv?"+qs(); };
+init();
+</script>
+</body>
+</html>

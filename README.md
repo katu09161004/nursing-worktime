@@ -37,11 +37,11 @@
 
 ```bash
 pip install -r requirements.txt
-uvicorn main:app --host 0.0.0.0 --port 8300
+uvicorn main:app --host 0.0.0.0 --port 8301
 ```
 
-- 記録画面: `http://<サーバIP>:8300/`
-- 集計ダッシュボード: `http://<サーバIP>:8300/dashboard`
+- 記録画面: `http://<サーバIP>:8301/`
+- 集計ダッシュボード: `http://<サーバIP>:8301/dashboard`
 
 導入の詳細は **[INSTALL.md](INSTALL.md)**、モバイル端末からの接続は **[DEPLOY-mobile.md](DEPLOY-mobile.md)** を参照。
 
