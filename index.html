@@ -92,6 +92,21 @@
   .start:disabled{opacity:.4}
   .hide{display:none}
 
+  /* ---- 業務終了サマリー ---- */
+  .overlay{position:fixed; inset:0; background:rgba(15,23,42,.45); z-index:30;
+           display:flex; align-items:center; justify-content:center; padding:20px}
+  /* .hide より後に .overlay を書いているため、詳細度で上書きしないと常時表示になる */
+  .overlay.hide{display:none}
+  .done{background:var(--panel); border-radius:20px; box-shadow:var(--shadow);
+        padding:24px 22px; width:100%; max-width:380px; text-align:center}
+  .done-h{font-size:13px; font-weight:800; color:var(--muted); margin-bottom:10px}
+  .done-label{font-size:24px; font-weight:800; line-height:1.3; margin-bottom:14px}
+  .done-range{font-size:16px; font-weight:700; color:var(--ink); font-variant-numeric:tabular-nums}
+  .done-dur{font-size:34px; font-weight:800; color:var(--accent); margin:8px 0 20px;
+            font-variant-numeric:tabular-nums; line-height:1}
+  .done-ok{width:100%; padding:16px; border:none; border-radius:14px; background:var(--ink);
+           color:#fff; font-size:17px; font-weight:800; cursor:pointer}
+
   .toast{position:fixed; left:50%; bottom:24px; transform:translateX(-50%);
     background:var(--ink); color:#fff; padding:12px 18px; border-radius:12px; font-weight:700; font-size:14px;
     box-shadow:var(--shadow); opacity:0; transition:opacity .2s; pointer-events:none; z-index:20}
@@ -145,6 +160,17 @@
     </div>
   </section>
 
+</div>
+
+<!-- 業務終了サマリー（OKで閉じる） -->
+<div id="doneOverlay" class="overlay hide">
+  <div class="done">
+    <div class="done-h">業務を終了しました</div>
+    <div class="done-label" id="doneLabel">-</div>
+    <div class="done-range" id="doneRange">-</div>
+    <div class="done-dur" id="doneDur">-</div>
+    <button class="done-ok" id="doneOk">OK</button>
+  </div>
 </div>
 
 <div id="toast" class="toast"></div>
@@ -250,12 +276,31 @@ async function punch(cat, sub, btn){
 /* ENDマーカーを打って待機状態へ戻す。最終区間はここで確定する。 */
 async function endCurrent(msg){
   const ts=new Date().toISOString();
+  const done = current ? {label:current.label, since:current.since, until:ts} : null;
   current=null; paintActive(); renderNow();
   await send("/api/end", {staff_id:sess.staff, ward:sess.ward, shift:sess.shift, category:"END", ts});
-  toast(msg);
+  // 実行中の業務があったときは、確定した区間を出して確認してもらう。
+  // 何も実行していなければ出すものが無いのでトーストだけ。
+  if(done) showDone(done); else toast(msg);
 }
 
 $("#endBtn").onclick=async ()=>{ await endCurrent("記録を終了しました"); };
+
+/* ---- 業務終了サマリー ---- */
+function showDone(d){
+  $("#doneLabel").textContent = d.label;
+  $("#doneRange").textContent = `${fmt(d.since)} 〜 ${fmt(d.until)}`;
+  $("#doneDur").textContent = durText(d.since, d.until);
+  $("#doneOverlay").classList.remove("hide");
+}
+function durText(since, until){
+  const sec=Math.max(0, Math.round((new Date(until)-new Date(since))/1000));
+  const h=Math.floor(sec/3600), m=Math.floor((sec%3600)/60), s=sec%60;
+  if(h>0) return `${h}時間${m}分${s}秒`;
+  if(m>0) return `${m}分${s}秒`;
+  return `${s}秒`;
+}
+$("#doneOk").onclick=()=>$("#doneOverlay").classList.add("hide");
 
 $("#undoBtn").onclick=async ()=>{
   try{
