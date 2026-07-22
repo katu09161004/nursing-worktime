@@ -11,6 +11,12 @@ worktime.db-shm
 claude.md
 CLAUDE.md
 HANDOFF.md
+HANDOFF-mobile-vps.md
+
+# 受け渡し用の一時ファイル
+files/
+files.zip
+.DS_Store
 
 # Python
 .venv/

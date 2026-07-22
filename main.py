@@ -23,8 +23,9 @@ import sqlite3
 from contextlib import closing
 from datetime import datetime, timedelta
 
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse, FileResponse
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import (HTMLResponse, StreamingResponse, JSONResponse,
+                               FileResponse, RedirectResponse, PlainTextResponse)
 from pydantic import BaseModel
 
 # ---------------------------------------------------------------------------
@@ -51,6 +52,23 @@ if _DBCFG is None and os.environ.get("NWT_DB_BACKEND") == "postgres":
         "password": os.environ.get("NWT_DB_PASSWORD", ""),
     }
 BACKEND = (_DBCFG or {}).get("backend", "sqlite")
+
+# --- 認証（インターネット公開時に必須。未設定なら認証なし＝院内LAN運用の後方互換）---
+# config_local.py に:
+#   AUTH = {"password": "共有パスワード", "api_key": "Excel用のキー", "secret": "任意の長い文字列"}
+# または環境変数 NWT_PASSWORD / NWT_API_KEY / NWT_SECRET
+try:
+    from config_local import AUTH as _AUTHCFG      # type: ignore
+except Exception:
+    _AUTHCFG = None
+_AUTHCFG = _AUTHCFG or {}
+AUTH_PASSWORD = _AUTHCFG.get("password") or os.environ.get("NWT_PASSWORD", "")
+AUTH_API_KEY = _AUTHCFG.get("api_key") or os.environ.get("NWT_API_KEY", "")
+AUTH_SECRET = (_AUTHCFG.get("secret") or os.environ.get("NWT_SECRET", "")
+               or (AUTH_PASSWORD + "|nwt-session-secret"))
+AUTH_ENABLED = bool(AUTH_PASSWORD)
+COOKIE_NAME = "nwt_session"
+COOKIE_DAYS = 30            # モバイルで毎回ログインさせないため長め
 
 # 打刻間隔がこの分数を超えたら「打ち忘れ疑い」として集計から除外できるよう flag を立てる
 MAX_INTERVAL_MIN = 240
@@ -271,6 +289,122 @@ init_db()
 # FastAPI
 # ---------------------------------------------------------------------------
 app = FastAPI(title="看護業務量調査ツール")
+
+
+# ===================== 認証（Cookieセッション + APIキー） =====================
+import hashlib
+import hmac as _hmac
+import time as _time
+
+_PUBLIC_PATHS = {"/health", "/login", "/manifest.json", "/favicon.ico", "/robots.txt"}
+
+
+def _sign(value: str) -> str:
+    return _hmac.new(AUTH_SECRET.encode(), value.encode(), hashlib.sha256).hexdigest()[:32]
+
+
+def make_token(days: int = COOKIE_DAYS) -> str:
+    exp = str(int(_time.time()) + days * 86400)
+    return f"{exp}.{_sign(exp)}"
+
+
+def token_valid(token: str) -> bool:
+    try:
+        exp, sig = (token or "").split(".", 1)
+    except ValueError:
+        return False
+    if not _hmac.compare_digest(sig, _sign(exp)):
+        return False
+    return int(exp) > _time.time()
+
+
+def _is_public(path: str) -> bool:
+    return path in _PUBLIC_PATHS or path.startswith("/icons/")
+
+
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    if not AUTH_ENABLED or _is_public(request.url.path):
+        return await call_next(request)
+
+    # Excel など機械からのアクセスは APIキー
+    key = request.headers.get("X-API-Key", "")
+    if AUTH_API_KEY and _hmac.compare_digest(key, AUTH_API_KEY):
+        return await call_next(request)
+
+    # ブラウザは Cookie セッション
+    if token_valid(request.cookies.get(COOKIE_NAME, "")):
+        return await call_next(request)
+
+    if request.url.path.startswith("/api/"):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    return RedirectResponse(f"/login?next={request.url.path}", status_code=302)
+
+
+LOGIN_HTML = """<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ログイン ｜ 看護業務量調査</title>
+<style>
+ *{box-sizing:border-box}
+ body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+   background:#f6f8f9;font-family:-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;color:#0f172a;padding:20px}
+ .card{background:#fff;border:1px solid #e2e8ee;border-radius:18px;padding:28px 24px;width:100%;max-width:380px;
+   box-shadow:0 10px 30px rgba(15,23,42,.07)}
+ h1{font-size:19px;margin:0 0 6px} p{margin:0 0 18px;color:#5b6b7a;font-size:13px;line-height:1.7}
+ label{display:block;font-size:12px;font-weight:800;color:#475569;margin-bottom:6px}
+ input{width:100%;padding:14px;font-size:16px;border:1px solid #cbd5e1;border-radius:12px;background:#fff}
+ button{width:100%;margin-top:14px;padding:15px;font-size:16px;font-weight:800;color:#fff;background:#0f766e;
+   border:0;border-radius:12px}
+ .err{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:10px;padding:10px 12px;
+   font-size:13px;margin-bottom:14px;font-weight:700}
+</style></head><body>
+<form class="card" method="post" action="/login">
+  <h1>看護業務量調査</h1>
+  <p>共有パスワードを入力してください。<br>一度ログインすると、しばらく再入力は不要です。</p>
+  __ERR__
+  <input type="hidden" name="next" value="__NEXT__">
+  <label for="pw">パスワード</label>
+  <input id="pw" name="password" type="password" autocomplete="current-password" required autofocus>
+  <button type="submit">ログイン</button>
+</form></body></html>"""
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_page(next: str = "/", error: int = 0):
+    err = '<div class="err">パスワードが違います</div>' if error else ""
+    safe_next = next if next.startswith("/") else "/"
+    return HTMLResponse(LOGIN_HTML.replace("__ERR__", err).replace("__NEXT__", safe_next))
+
+
+@app.post("/login")
+async def login_submit(request: Request):
+    form = await request.form()
+    password = str(form.get("password", ""))
+    nxt = str(form.get("next", "/")) or "/"
+    if not nxt.startswith("/"):
+        nxt = "/"
+    if not AUTH_ENABLED or _hmac.compare_digest(password, AUTH_PASSWORD):
+        resp = RedirectResponse(nxt, status_code=303)
+        resp.set_cookie(
+            COOKIE_NAME, make_token(), max_age=COOKIE_DAYS * 86400,
+            httponly=True, samesite="lax",
+            secure=(os.environ.get("NWT_COOKIE_SECURE", "1") == "1"),
+        )
+        return resp
+    return RedirectResponse(f"/login?error=1&next={nxt}", status_code=303)
+
+
+@app.get("/logout")
+def logout():
+    resp = RedirectResponse("/login", status_code=303)
+    resp.delete_cookie(COOKIE_NAME)
+    return resp
+
+
+@app.get("/robots.txt", response_class=PlainTextResponse)
+def robots():
+    return "User-agent: *\nDisallow: /\n"
+
 
 
 class Punch(BaseModel):
