@@ -70,6 +70,21 @@ AUTH_ENABLED = bool(AUTH_PASSWORD)
 COOKIE_NAME = "nwt_session"
 COOKIE_DAYS = 30            # モバイルで毎回ログインさせないため長め
 
+# --- 公開パス接頭辞（既存サイトのサブパスに相乗りする場合に使う）---
+# 例: nginx が location /nwt/ で接頭辞を剥がして 127.0.0.1:8300 に渡す構成なら BASE_PATH="/nwt"。
+# アプリ自身は常に接頭辞なしのパス（/api/... 等）で動き、
+# 外向きに出す URL（リダイレクト・manifest・HTML内のリンク）にだけ接頭辞を付ける。
+# 未設定（既定）なら "" ＝ルート直下＝従来どおりの動作。
+try:
+    from config_local import BASE_PATH as _BASEPATH   # type: ignore
+except Exception:
+    _BASEPATH = None
+BASE_PATH = (_BASEPATH if _BASEPATH is not None
+             else os.environ.get("NWT_BASE_PATH", "")).rstrip("/")
+if BASE_PATH and not BASE_PATH.startswith("/"):
+    BASE_PATH = "/" + BASE_PATH
+BASE_URL = BASE_PATH + "/"   # HTML の相対リンク用。ルート運用なら "/"
+
 # 打刻間隔がこの分数を超えたら「打ち忘れ疑い」として集計から除外できるよう flag を立てる
 MAX_INTERVAL_MIN = 240
 
@@ -295,6 +310,8 @@ app = FastAPI(title="看護業務量調査ツール")
 import hashlib
 import hmac as _hmac
 import time as _time
+from html import escape as _esc
+from urllib.parse import quote
 
 _PUBLIC_PATHS = {"/health", "/login", "/manifest.json", "/favicon.ico", "/robots.txt"}
 
@@ -322,6 +339,23 @@ def _is_public(path: str) -> bool:
     return path in _PUBLIC_PATHS or path.startswith("/icons/")
 
 
+def _safe_next(nxt: str) -> str:
+    """ログイン後の遷移先。自サイト内の絶対パスだけを許可する。
+
+    "//evil.example" や "/\\evil.example" はブラウザが外部URLとして解釈するため弾く
+    （オープンリダイレクト対策）。
+    """
+    nxt = nxt or "/"
+    if not nxt.startswith("/") or nxt.startswith("//") or nxt.startswith("/\\"):
+        return "/"
+    return nxt
+
+
+def _ext(path: str) -> str:
+    """アプリ内パス（接頭辞なし）を、ブラウザに返す外向きURLに変換する。"""
+    return BASE_PATH + path if path.startswith("/") else path
+
+
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
     if not AUTH_ENABLED or _is_public(request.url.path):
@@ -338,7 +372,8 @@ async def auth_middleware(request: Request, call_next):
 
     if request.url.path.startswith("/api/"):
         return JSONResponse({"error": "unauthorized"}, status_code=401)
-    return RedirectResponse(f"/login?next={request.url.path}", status_code=302)
+    nxt = quote(_safe_next(request.url.path), safe="/")
+    return RedirectResponse(_ext(f"/login?next={nxt}"), status_code=302)
 
 
 LOGIN_HTML = """<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8">
@@ -358,7 +393,7 @@ LOGIN_HTML = """<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8">
  .err{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:10px;padding:10px 12px;
    font-size:13px;margin-bottom:14px;font-weight:700}
 </style></head><body>
-<form class="card" method="post" action="/login">
+<form class="card" method="post" action="__ACTION__">
   <h1>看護業務量調査</h1>
   <p>共有パスワードを入力してください。<br>一度ログインすると、しばらく再入力は不要です。</p>
   __ERR__
@@ -372,32 +407,34 @@ LOGIN_HTML = """<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8">
 @app.get("/login", response_class=HTMLResponse)
 def login_page(next: str = "/", error: int = 0):
     err = '<div class="err">パスワードが違います</div>' if error else ""
-    safe_next = next if next.startswith("/") else "/"
-    return HTMLResponse(LOGIN_HTML.replace("__ERR__", err).replace("__NEXT__", safe_next))
+    # next は利用者由来なので、属性値として必ずエスケープする
+    safe_next = _esc(_safe_next(next), quote=True)
+    return HTMLResponse(LOGIN_HTML
+                        .replace("__ERR__", err)
+                        .replace("__ACTION__", _ext("/login"))
+                        .replace("__NEXT__", safe_next))
 
 
 @app.post("/login")
 async def login_submit(request: Request):
     form = await request.form()
     password = str(form.get("password", ""))
-    nxt = str(form.get("next", "/")) or "/"
-    if not nxt.startswith("/"):
-        nxt = "/"
+    nxt = _safe_next(str(form.get("next", "/")))
     if not AUTH_ENABLED or _hmac.compare_digest(password, AUTH_PASSWORD):
-        resp = RedirectResponse(nxt, status_code=303)
+        resp = RedirectResponse(_ext(nxt), status_code=303)
         resp.set_cookie(
             COOKIE_NAME, make_token(), max_age=COOKIE_DAYS * 86400,
-            httponly=True, samesite="lax",
+            httponly=True, samesite="lax", path=BASE_URL,
             secure=(os.environ.get("NWT_COOKIE_SECURE", "1") == "1"),
         )
         return resp
-    return RedirectResponse(f"/login?error=1&next={nxt}", status_code=303)
+    return RedirectResponse(_ext(f"/login?error=1&next={quote(nxt, safe='/')}"), status_code=303)
 
 
 @app.get("/logout")
 def logout():
-    resp = RedirectResponse("/login", status_code=303)
-    resp.delete_cookie(COOKIE_NAME)
+    resp = RedirectResponse(_ext("/login"), status_code=303)
+    resp.delete_cookie(COOKIE_NAME, path=BASE_URL)
     return resp
 
 
@@ -794,16 +831,17 @@ def manifest():
     return JSONResponse({
         "name": "看護業務量調査",
         "short_name": "業務量調査",
-        "start_url": "/",
-        "scope": "/",
+        "start_url": BASE_URL,
+        "scope": BASE_URL,
         "display": "standalone",
         "orientation": "portrait",
         "background_color": "#eef2f4",
         "theme_color": "#0f766e",
         "icons": [
-            {"src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
-            {"src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png"},
-            {"src": "/icons/icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
+            {"src": _ext("/icons/icon-192.png"), "sizes": "192x192", "type": "image/png"},
+            {"src": _ext("/icons/icon-512.png"), "sizes": "512x512", "type": "image/png"},
+            {"src": _ext("/icons/icon-maskable.png"), "sizes": "512x512",
+             "type": "image/png", "purpose": "maskable"},
         ],
     })
 
@@ -820,8 +858,13 @@ def icon(name: str):
 # 画面
 # ---------------------------------------------------------------------------
 def _read(name: str) -> str:
+    """HTML を読み、__BASE__ を公開URLの接頭辞に差し替えて返す。
+
+    ルート運用なら "/"、サブパス相乗りなら "/nwt/" 等。
+    HTML 側は href="__BASE__dashboard" / fetch("__BASE__api/config") のように書く。
+    """
     with open(os.path.join(BASE_DIR, name), encoding="utf-8") as f:
-        return f.read()
+        return f.read().replace("__BASE__", BASE_URL)
 
 
 @app.get("/", response_class=HTMLResponse)

@@ -9,9 +9,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="業務量調査">
-<link rel="manifest" href="/manifest.json">
-<link rel="icon" href="/icons/icon-192.png">
-<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="manifest" href="__BASE__manifest.json">
+<link rel="icon" href="__BASE__icons/icon-192.png">
+<link rel="apple-touch-icon" href="__BASE__icons/icon-192.png">
 <style>
   :root{
     --bg:#eef2f4; --panel:#ffffff; --ink:#0f172a; --muted:#64748b;
@@ -221,7 +221,7 @@
     </div>
 
     <div class="foot">
-      <span><a class="link" href="/dashboard" target="_blank">集計ダッシュボード →</a>　<a class="link" href="/manual" target="_blank">使い方 →</a></span>
+      <span><a class="link" href="__BASE__dashboard" target="_blank">集計ダッシュボード →</a>　<a class="link" href="__BASE__manual" target="_blank">使い方 →</a></span>
       <span id="queueInfo" class="queue"></span>
     </div>
   </section>
@@ -259,7 +259,7 @@ const $ = s => document.querySelector(s);
 function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1600); }
 
 async function boot(){
-  CFG = await (await fetch("/api/config")).json();
+  CFG = await (await fetch("__BASE__api/config")).json();
   paintOt();
   if(sess && sess.staff){ showMain(); } else { showSetup(); }
   flushOutbox();
@@ -281,7 +281,7 @@ document.querySelectorAll("#otToggle button").forEach(b=>{
     if(current){
       const ts=new Date().toISOString();
       current={...current, since:ts}; renderNow();
-      await send("/api/punch", {staff_id:sess.staff, ward:sess.ward, shift:sess.shift,
+      await send("__BASE__api/punch", {staff_id:sess.staff, ward:sess.ward, shift:sess.shift,
                                 category:current.category, subcategory:current.subcategory, ts, overtime});
     }
     toast(overtime?"勤務時間外に切り替えました":"勤務時間内に切り替えました");
@@ -467,7 +467,7 @@ async function punch(cat, sub, btn){
   current={category:cat.key, subcategory:sub.key, label:sub.label, since:ts};
   paintActive(); renderNow();
   // 打刻しても画面は戻さない。押した業務が緑のまま残り、上にタイマーが出る。
-  await send("/api/punch", body);
+  await send("__BASE__api/punch", body);
 }
 
 /* ENDマーカーを打って待機状態へ戻す。最終区間はここで確定する。 */
@@ -475,7 +475,7 @@ async function endCurrent(msg){
   const ts=new Date().toISOString();
   const done = current ? {label:current.label, since:current.since, until:ts} : null;
   current=null; paintActive(); renderNow();
-  await send("/api/end", {staff_id:sess.staff, ward:sess.ward, shift:sess.shift, category:"END", ts, overtime});
+  await send("__BASE__api/end", {staff_id:sess.staff, ward:sess.ward, shift:sess.shift, category:"END", ts, overtime});
   // 実行中の業務があったときは、確定した区間を出して確認してもらう。
   // 何も実行していなければ出すものが無いのでトーストだけ。
   if(done) showDone(done); else toast(msg);
@@ -501,7 +501,7 @@ $("#doneOk").onclick=()=>$("#doneOverlay").classList.add("hide");
 
 $("#undoBtn").onclick=async ()=>{
   try{
-    const r=await fetch("/api/undo?staff_id="+encodeURIComponent(sess.staff), {method:"POST"});
+    const r=await fetch("__BASE__api/undo?staff_id="+encodeURIComponent(sess.staff), {method:"POST"});
     if(!r.ok) throw 0;
     toast("直前の打刻を取り消しました");
     await refreshCurrent();
@@ -510,7 +510,7 @@ $("#undoBtn").onclick=async ()=>{
 
 async function refreshCurrent(){
   try{
-    const r=await fetch("/api/current?staff_id="+encodeURIComponent(sess.staff));
+    const r=await fetch("__BASE__api/current?staff_id="+encodeURIComponent(sess.staff));
     const d=await r.json();
     current = d.active ? {category:d.category, subcategory:d.subcategory, label:d.label, since:d.since} : null;
   }catch(e){ /* オフライン時は直近のローカル状態を維持 */ }

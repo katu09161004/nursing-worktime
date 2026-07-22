@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>集計ダッシュボード｜看護業務量調査</title>
-<link rel="icon" href="/icons/icon-192.png">
+<link rel="icon" href="__BASE__icons/icon-192.png">
 <style>
   :root{
     --bg:#eef2f4; --panel:#fff; --ink:#0f172a; --muted:#64748b; --line:#dbe3e8;
@@ -60,7 +60,7 @@
 </head>
 <body>
 <div class="wrap">
-  <a class="back" href="/">← 記録画面へ</a>
+  <a class="back" href="__BASE__">← 記録画面へ</a>
   <h1 style="margin-top:10px">集計ダッシュボード</h1>
   <p class="sub">AI導入前後の比較ベースライン／多職種協働加算エビデンス用</p>
 
@@ -133,7 +133,7 @@ const $=s=>document.querySelector(s);
 const CATCOLORS={};
 
 async function init(){
-  const cfg=await (await fetch("/api/config")).json();
+  const cfg=await (await fetch("__BASE__api/config")).json();
   cfg.wards.forEach(w=>$("#ward").insertAdjacentHTML("beforeend",`<option>${w}</option>`));
   cfg.shifts.forEach(s=>$("#shift").insertAdjacentHTML("beforeend",`<option>${s}</option>`));
   cfg.categories.forEach(c=>CATCOLORS[c.key]=c.color);
@@ -155,7 +155,7 @@ function qs(){
 }
 
 async function load(){
-  const d=await (await fetch("/api/summary?"+qs())).json();
+  const d=await (await fetch("__BASE__api/summary?"+qs())).json();
   $("#mSessions").textContent=d.n_sessions;
   $("#mTotal").textContent=(d.total_minutes/60).toFixed(1);
   $("#mIn").textContent=d.total_in_minutes;
@@ -232,7 +232,7 @@ async function load(){
 }
 
 $("#apply").onclick=load;
-$("#csv").onclick=()=>{ location.href="/api/export.csv?"+qs(); };
+$("#csv").onclick=()=>{ location.href="__BASE__api/export.csv?"+qs(); };
 init();
 </script>
 </body>
