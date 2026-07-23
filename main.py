@@ -599,6 +599,7 @@ def _load_intervals(where_sql: str, params: list):
                 "end": nxt["ts"],
                 "minutes": round(minutes, 1),
                 "suspect": flag,
+                "source": "web",       # Web打刻由来（区間は実時刻から算出）
             })
     return intervals
 
@@ -628,6 +629,8 @@ def _load_entry_intervals(frm, to, ward, shift):
             "start": d, "end": d,
             "minutes": round(float(e["minutes"] or 0), 1),
             "suspect": False,
+            # 投入元（既定は Excel）。CSVでWeb打刻と区別するために持ち回る。
+            "source": (e["source"] if "source" in e.keys() else None) or "excel",
         })
     return out
 
@@ -791,9 +794,13 @@ def api_export(
     ward: str | None = None,
     shift: str | None = None,
     include_suspect: bool = True,
+    include_excel: bool = True,
 ):
     where, params = _build_filter(frm, to, ward, shift)
     intervals = _load_intervals(where, params)
+    if include_excel:
+        # /api/summary と同じ土俵に揃える。これを入れないとExcel投入分がCSVから丸ごと落ちる。
+        intervals += _load_entry_intervals(frm, to, ward, shift)
     if not include_suspect:
         intervals = [x for x in intervals if not x["suspect"]]
 
@@ -801,14 +808,21 @@ def api_export(
     w = csv.writer(buf)
     w.writerow(["staff_id", "ward", "shift", "大分類", "中分類", "小分類",
                 "AIツール", "開始", "終了", "所要分", "勤務時間内", "勤務時間外",
-                "時間区分", "打ち忘れ疑い"])
+                "時間区分", "打ち忘れ疑い", "データ元"])
     for x in intervals:
+        src = x.get("source", "web")
+        if src == "web":
+            start, end = x["start"], x["end"]
+        else:
+            # 集計済み投入は実時刻を持たない。0時の打刻に見えないよう日付だけ出し、終了は空。
+            start, end = x["start"][:10], ""
         w.writerow([x["staff_id"], x["ward"], x["shift"], x["group"], x["cat_label"], x["sub_label"],
-                    x["ai_tool"], x["start"], x["end"], x["minutes"],
+                    x["ai_tool"], start, end, x["minutes"],
                     "" if x["overtime"] else x["minutes"],
                     x["minutes"] if x["overtime"] else "",
                     "勤務時間外" if x["overtime"] else "勤務時間内",
-                    "○" if x["suspect"] else ""])
+                    "○" if x["suspect"] else "",
+                    "Web打刻" if src == "web" else "Excel"])
     buf.seek(0)
     fname = f"worktime_{datetime.now():%Y%m%d_%H%M}.csv"
     # Excel(日本語)向けにBOM付きUTF-8
