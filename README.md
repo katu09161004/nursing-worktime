@@ -60,6 +60,7 @@ manual/                  利用者マニュアル（PDF・画面付き）
 docs/                    GitHub Pages 用プレビュー（静的デモ）
 deploy/sync_export.py    別サーバへ渡す打刻・集計エントリの書き出し
 deploy/sync_import.py    上記の取り込み（冪等・衝突は既定でスキップ）
+google/nwt-sheets.gs     Googleスプレッドシートへ集計を自動取得（Apps Script）
 ```
 
 ### 2台構成でのデータ統合
