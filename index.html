@@ -152,7 +152,7 @@
   .more-link{background:none;border:none;color:#0f766e;font-weight:700;font-size:13px;cursor:pointer;padding:0;margin:-4px 0 14px;display:inline-block}
 
   /* ---- 音声で打刻 ---- */
-  .voicebar{display:flex; align-items:center; gap:12px; margin-top:22px}
+  .voicebar{display:flex; align-items:center; gap:12px; margin:0 0 14px}
   .act.voice{flex:0 0 auto; display:flex; align-items:center; gap:8px}
   .act.voice.on{background:var(--accent); color:#fff; border-color:transparent}
   .act.voice.on .mic-dot{animation:micpulse 1s infinite}
@@ -220,6 +220,12 @@
       <button data-vw="list">一覧から選ぶ</button>
     </div>
 
+    <!-- 音声で打刻（表示切替の下）。オンライン＝ネット接続かつHTTPS環境でのみ動作 -->
+    <div class="voicebar" id="voiceBar">
+      <button class="act voice" id="voiceBtn" type="button"><span class="mic-dot"></span><span id="voiceBtnLabel">音声で打刻</span></button>
+      <div class="voice-status" id="voiceStatus"></div>
+    </div>
+
     <!-- 1段目: 中分類を選ぶ（分類ビュー） -->
     <div id="catScreen"></div>
 
@@ -235,11 +241,6 @@
     <!-- 一覧ビュー: 全小分類を大分類ごとに並べる -->
     <div id="listScreen" class="hide"></div>
 
-    <!-- 音声で打刻（オンライン＝ネット接続かつHTTPS環境でのみ動作。院内オフラインは別途対応） -->
-    <div class="voicebar" id="voiceBar">
-      <button class="act voice" id="voiceBtn" type="button"><span class="mic-dot"></span><span id="voiceBtnLabel">音声で打刻</span></button>
-      <div class="voice-status" id="voiceStatus"></div>
-    </div>
     <div class="actions">
       <button class="act undo" id="undoBtn">直前を取り消す</button>
       <button class="act end" id="endBtn">記録終了</button>
