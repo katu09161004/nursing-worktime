@@ -608,6 +608,8 @@ function updateQueue(){
    端末内の「読み・別名＋あいまい一致」で即判定し、迷ったときだけ
    /api/voice/interpret（AI解釈）に投げる。確定前にビープ＋読み上げで確認する。 */
 let vRec=null, vOn=false, vAudio=null;
+// whisper（オンプレSTT）用の録音・区切り状態
+let vStream=null, vRecorder=null, vChunks=[], vAnalyser=null, vVadRAF=null, vSpeaking=false, vSilenceStart=0, vHadSpeech=false;
 
 // 区分キー → 読み・別名（必要に応じて増やせる。網羅しなくてもAIが拾う）
 const VSYN = {
@@ -750,11 +752,13 @@ function initVoice(){
       toast(showDoneSummary ? "終了サマリーを表示します" : "終了サマリーを出しません"); };
   }
 }
+function sttMode(){ return (CFG.stt && CFG.stt.mode) || "webspeech"; }
 function toggleVoice(){
   if(vOn){ stopVoice(); return; }
   if(!window.isSecureContext){ toast("音声入力にはHTTPS接続が必要です"); return; }
+  if(sttMode()==="whisper"){ startWhisper(); return; }   // オンプレ録音→文字起こし
   if(!speechAvailable()){ toast("この端末は音声認識に未対応です"); return; }
-  startVoice();
+  startVoice();                                          // ブラウザ音声認識
 }
 function startVoice(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -771,9 +775,89 @@ function startVoice(){
   beep([660],0.05); speak("");   // ユーザー操作起点で音声出力を解錠
 }
 function stopVoice(){
-  vOn=false; if(vRec){ try{ vRec.stop(); }catch(e){} vRec=null; }
+  const whisper = sttMode()==="whisper";
+  vOn=false;
+  if(whisper) stopWhisper();
+  else if(vRec){ try{ vRec.stop(); }catch(e){} vRec=null; }
   const b=$("#voiceBtn"); if(b){ b.classList.remove("on"); $("#voiceBtnLabel").textContent="音声で打刻"; }
   setStatus("");
+}
+
+/* ---- オンプレSTT（whisper等）: マイク録音→無音で区切り→/transcribeにPOST→text ---- */
+async function startWhisper(){
+  try{
+    vStream = await navigator.mediaDevices.getUserMedia({audio:{channelCount:1, echoCancellation:true, noiseSuppression:true}});
+  }catch(e){ toast("マイクの許可が必要です"); return; }
+  vOn=true;
+  $("#voiceBtn").classList.add("on"); $("#voiceBtnLabel").textContent="聞き取り中… 停止";
+  setStatus("お話しください（例:「清潔」「終わりました」）");
+  beep([660],0.05); speak("");                 // ユーザー操作起点で音声出力を解錠
+  vAudio = vAudio || new (window.AudioContext||window.webkitAudioContext)();
+  if(vAudio.state==="suspended") vAudio.resume();
+  const srcNode = vAudio.createMediaStreamSource(vStream);
+  vAnalyser = vAudio.createAnalyser(); vAnalyser.fftSize = 2048; srcNode.connect(vAnalyser);
+  startSegment();
+  monitorVad();
+}
+function pickMime(){
+  const cands=["audio/webm;codecs=opus","audio/webm","audio/ogg;codecs=opus","audio/mp4"];
+  for(const m of cands){ if(window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)) return {mimeType:m}; }
+  return {};
+}
+function startSegment(){
+  vChunks=[]; vHadSpeech=false; vSpeaking=false; vSilenceStart=0;
+  try{ vRecorder = new MediaRecorder(vStream, pickMime()); }
+  catch(e){ try{ vRecorder = new MediaRecorder(vStream); }catch(e2){ toast("録音に未対応の端末です"); stopWhisper(); return; } }
+  vRecorder.ondataavailable = e=>{ if(e.data && e.data.size) vChunks.push(e.data); };
+  vRecorder.onstop = onSegmentStop;
+  vRecorder.start();
+}
+function monitorVad(){
+  if(!vOn || !vAnalyser){ return; }
+  const buf=new Uint8Array(vAnalyser.fftSize);
+  vAnalyser.getByteTimeDomainData(buf);
+  let sum=0; for(let i=0;i<buf.length;i++){ const v=(buf[i]-128)/128; sum+=v*v; }
+  const rms=Math.sqrt(sum/buf.length);
+  const now=performance.now();
+  const SPEAK=0.045, SIL=0.02;                 // 話声/無音のしきい値（実機で要調整）
+  if(rms>SPEAK){ vSpeaking=true; vHadSpeech=true; vSilenceStart=0; }
+  else if(rms<SIL && vSpeaking){
+    if(!vSilenceStart) vSilenceStart=now;
+    else if(now - vSilenceStart > 700 && vHadSpeech){ cutSegment(); }  // 発話後0.7秒無音で区切り
+  }
+  vVadRAF = requestAnimationFrame(monitorVad);
+}
+function cutSegment(){
+  vSpeaking=false; vSilenceStart=0;
+  if(vRecorder && vRecorder.state==="recording"){ vRecorder.stop(); }   // → onSegmentStop
+}
+async function onSegmentStop(){
+  const chunks=vChunks, had=vHadSpeech;
+  if(vOn) startSegment();                       // 次の発話へすぐ移る
+  if(!had || !chunks.length) return;
+  const blob=new Blob(chunks, {type:(chunks[0] && chunks[0].type) || "audio/webm"});
+  if(blob.size < 1400) return;                  // 短すぎる断片（ノイズ）は無視
+  await sttSend(blob);
+}
+async function sttSend(blob){
+  const s=CFG.stt||{};
+  const fd=new FormData();
+  fd.append(s.field||"audio", blob, "clip.webm");
+  try{
+    setStatus("認識中…", true);
+    const r=await fetch(s.url, {method:"POST", body:fd});
+    if(!r.ok) throw 0;
+    const d=await r.json();
+    const text=((d.text||d.transcript||"")+"").trim();
+    if(text) handleUtterance(text); else setStatus("（聞き取れませんでした）");
+  }catch(e){ setStatus("認識サーバに接続できません"); }
+}
+function stopWhisper(){
+  vOn=false;
+  if(vVadRAF){ cancelAnimationFrame(vVadRAF); vVadRAF=null; }
+  if(vRecorder && vRecorder.state!=="inactive"){ try{ vRecorder.onstop=null; vRecorder.stop(); }catch(e){} }
+  vRecorder=null; vAnalyser=null;
+  if(vStream){ vStream.getTracks().forEach(t=>t.stop()); vStream=null; }
 }
 function onVoiceResult(ev){
   let interim="", finalText="";

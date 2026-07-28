@@ -87,6 +87,21 @@ VOICE_BASE_URL = (_VOICECFG.get("base_url")
 VOICE_MODEL = _VOICECFG.get("model") or os.environ.get("NWT_VOICE_MODEL", "gpt-oss-120b")
 VOICE_ENABLED = bool(VOICE_API_KEY)
 
+# --- 音声認識(STT)モード ---
+# 既定 "webspeech"：ブラウザ内蔵の音声認識（Google/Apple、要インターネット）。VPS向け。
+# "whisper"：オンプレの文字起こしサーバ（例: aqua-stt / faster-whisper）にマイク音声をPOST。
+#   院内LAN完結。config_local.py に:
+#     STT = {"mode": "whisper", "url": "/nwt-stt/transcribe", "field": "audio"}
+#   url は同一オリジンの相対パス推奨（nginxでオンプレSTTへプロキシ）。
+try:
+    from config_local import STT as _STTCFG    # type: ignore
+except Exception:
+    _STTCFG = None
+_STTCFG = _STTCFG or {}
+STT_MODE = _STTCFG.get("mode") or ("whisper" if _STTCFG.get("url") else "webspeech")
+STT_URL = _STTCFG.get("url", "")
+STT_FIELD = _STTCFG.get("field", "audio")
+
 # --- 公開パス接頭辞（既存サイトのサブパスに相乗りする場合に使う）---
 # 例: nginx が location /nwt/ で接頭辞を剥がして 127.0.0.1:8300 に渡す構成なら BASE_PATH="/nwt"。
 # アプリ自身は常に接頭辞なしのパス（/api/... 等）で動き、
@@ -499,6 +514,7 @@ def api_config():
         "shifts": SHIFTS,
         "staff": STAFF,
         "voice_ai": VOICE_ENABLED,   # 音声のAI解釈が使えるか（フロントは無効なら端末内一致のみ）
+        "stt": {"mode": STT_MODE, "url": STT_URL, "field": STT_FIELD},   # 音声認識の方式（webspeech/whisper）
     }
 
 
