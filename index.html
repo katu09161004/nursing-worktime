@@ -240,15 +240,6 @@
       <button class="act voice" id="voiceBtn" type="button"><span class="mic-dot"></span><span id="voiceBtnLabel">音声で打刻</span></button>
       <div class="voice-status" id="voiceStatus"></div>
     </div>
-    <!-- 誤認識での誤記録を防ぐため、実行前に必ず確認を挟む（タップ／「はい・いいえ」で応答） -->
-    <div class="vconfirm hide" id="voiceConfirm">
-      <div class="vc-text"><b id="vcLabel">-</b> <span id="vcVerb">を記録</span>しますか？</div>
-      <div class="vc-btns">
-        <button class="vc-yes" id="vcYes" type="button">はい</button>
-        <button class="vc-no" id="vcNo" type="button">いいえ</button>
-      </div>
-    </div>
-
     <div class="actions">
       <button class="act undo" id="undoBtn">直前を取り消す</button>
       <button class="act end" id="endBtn">記録終了</button>
@@ -608,7 +599,7 @@ function updateQueue(){
 /* ====================== 音声で打刻 ======================
    端末内の「読み・別名＋あいまい一致」で即判定し、迷ったときだけ
    /api/voice/interpret（AI解釈）に投げる。確定前にビープ＋読み上げで確認する。 */
-let vRec=null, vOn=false, vPending=null, vTimer=null, vAudio=null;
+let vRec=null, vOn=false, vAudio=null;
 
 // 区分キー → 読み・別名（必要に応じて増やせる。網羅しなくてもAIが拾う）
 const VSYN = {
@@ -679,32 +670,36 @@ async function aiInterpret(text){
 async function handleUtterance(text){
   let m = localMatch(text);
   if(m.type==="none" && CFG.voice_ai){ setStatus("解釈中… 「"+text+"」", true); m = await aiInterpret(text); }
-  if(m.type==="none"){ beep([340],0.12); speak("すみません、もう一度お願いします"); setStatus("該当なし: 「"+text+"」"); return; }
-  proposeCommand(m);
+  if(m.type==="none"){ setStatus("聞き取り: 「"+text+"」（該当なし）"); return; }  // 連続聞き取り中は静かに無視
+  await runCommand(m);
 }
 
-// 確定前の確認。ビープ2回＋「○○ですね」と読み上げる
-function proposeCommand(m){
-  vPending=m;
-  const label = m.type==="task" ? m.sub.label : (m.type==="end" ? "記録終了" : "直前の取り消し");
-  $("#vcLabel").textContent = label;
-  $("#vcVerb").textContent  = m.type==="task" ? "を記録" : (m.type==="end" ? "" : "を実行");
-  $("#voiceConfirm").classList.remove("hide");
-  setStatus("確認: 「"+label+"」 はい／いいえ", true);
-  beep([880,1175],0.09);
-  speak(m.type==="task" ? `${label}ですね。よろしければ、はい`
-      : m.type==="end"  ? "記録を終了しますか。はい、で確定"
-      :                   "直前を取り消しますか。はい、で確定");
-  clearTimeout(vTimer); vTimer=setTimeout(cancelPending, 8000);
+// 即時モード：言った瞬間に実行し、音＋読み上げで返す。訂正は「取り消して」/ボタン。
+async function runCommand(m){
+  if(m.type==="task"){
+    // 既に記録中の同じ業務なら無視（連続聞き取りでの重複発話で誤って終了させない。
+    // 終了は「終わりました」等のENDコマンドだけで行う）
+    if(current && current.category===m.cat.key && current.subcategory===m.sub.key){
+      setStatus("記録中: "+m.sub.label, true); return;
+    }
+    startBeep();                                  // ピピッ ＝ 録り始めた
+    await punch(m.cat, m.sub);
+    speak(`${m.sub.label}、記録します`);
+    setStatus("記録中: "+m.sub.label, true);
+  }else if(m.type==="end"){
+    endBeep();                                    // ピー ＝ 終わった
+    await endCurrent("記録を終了しました");
+    speak("終わりました");
+    setStatus("記録を終了しました", true);
+  }else if(m.type==="undo"){
+    endBeep();
+    $("#undoBtn").click();
+    speak("取り消しました");
+    setStatus("取り消しました", true);
+  }
 }
-function cancelPending(){ vPending=null; $("#voiceConfirm").classList.add("hide"); clearTimeout(vTimer); if(vOn) setStatus("お話しください"); }
-async function confirmPending(){
-  const m=vPending; if(!m) return;
-  cancelPending(); beep([1320],0.08);
-  if(m.type==="task"){ await punch(m.cat, m.sub); speak(`${m.sub.label}を記録しました`); }
-  else if(m.type==="end"){ await endCurrent("記録を終了しました"); speak("記録を終了しました"); }
-  else if(m.type==="undo"){ $("#undoBtn").click(); speak("取り消しました"); }
-}
+function startBeep(){ beep([880,1320],0.07); }      // 上がる2音＝開始
+function endBeep(){ beep([600],0.32); }             // 長めの1音＝終了
 
 /* ---- 音のフィードバック（端末内・外部通信なし）---- */
 function beep(freqs, dur){
@@ -739,8 +734,6 @@ function speechAvailable(){ return ("webkitSpeechRecognition" in window) || ("Sp
 function initVoice(){
   buildVoiceIndex();
   const b=$("#voiceBtn"); if(b) b.onclick=toggleVoice;
-  const y=$("#vcYes"); if(y) y.onclick=confirmPending;
-  const n=$("#vcNo");  if(n) n.onclick=()=>{ cancelPending(); speak("キャンセルしました"); };
 }
 function toggleVoice(){
   if(vOn){ stopVoice(); return; }
@@ -765,7 +758,7 @@ function startVoice(){
 function stopVoice(){
   vOn=false; if(vRec){ try{ vRec.stop(); }catch(e){} vRec=null; }
   const b=$("#voiceBtn"); if(b){ b.classList.remove("on"); $("#voiceBtnLabel").textContent="音声で打刻"; }
-  cancelPending(); setStatus("");
+  setStatus("");
 }
 function onVoiceResult(ev){
   let interim="", finalText="";
@@ -776,10 +769,6 @@ function onVoiceResult(ev){
   if(interim && !finalText) setStatus("… "+interim, true);
   if(!finalText) return;
   const t=finalText.trim(); if(!t) return;
-  if(vPending){
-    if(/(はい|オッケー|オーケー|ok|うん|そうです|それで)/i.test(t)){ confirmPending(); return; }
-    if(/(いいえ|ちがう|違う|やめ|キャンセル|だめ)/.test(t)){ cancelPending(); speak("キャンセルしました"); return; }
-  }
   handleUtterance(t);
 }
 
