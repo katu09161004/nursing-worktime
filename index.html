@@ -153,6 +153,8 @@
 
   /* ---- 音声で打刻 ---- */
   .voicebar{display:flex; align-items:center; gap:12px; margin:0 0 14px}
+  .setrow{display:flex; align-items:center; gap:8px; margin-top:16px; font-size:13px; font-weight:700; color:var(--muted); cursor:pointer}
+  .setrow input{width:20px; height:20px; accent-color:var(--accent)}
   .act.voice{flex:0 0 auto; display:flex; align-items:center; gap:8px}
   .act.voice.on{background:var(--accent); color:#fff; border-color:transparent}
   .act.voice.on .mic-dot{animation:micpulse 1s infinite}
@@ -246,6 +248,8 @@
       <button class="act end" id="endBtn">記録終了</button>
     </div>
 
+    <label class="setrow"><input type="checkbox" id="doneToggle"> 業務終了時にサマリー画面（OK）を出す</label>
+
     <div class="foot">
       <span><a class="link" href="__BASE__dashboard" target="_blank">集計ダッシュボード →</a>　<a class="link" href="__BASE__manual" target="_blank">使い方 →</a></span>
       <span id="queueInfo" class="queue"></span>
@@ -277,6 +281,9 @@ let sess = JSON.parse(localStorage.getItem(LS) || "null"); // {staff,ward,shift}
 let overtime = JSON.parse(localStorage.getItem(OT) || "false"); // false=勤務時間内 / true=時間外
 const VW = "nwt.view.v1";
 let view = localStorage.getItem(VW) || "cat"; // "cat"=分類から / "list"=一覧から
+const DONESUM = "nwt.doneSummary.v1";
+// 業務終了サマリー（OKを押す画面）を出すか。OFFなら短いトーストだけでタップ不要。既定ON。
+let showDoneSummary = JSON.parse(localStorage.getItem(DONESUM) ?? "true");
 let pick = {staff:null, ward:null, shift:null};
 let current = null;      // {label, since}
 let timerHandle = null;
@@ -503,9 +510,10 @@ async function endCurrent(msg){
   const done = current ? {label:current.label, since:current.since, until:ts} : null;
   current=null; paintActive(); renderNow();
   await send("__BASE__api/end", {staff_id:sess.staff, ward:sess.ward, shift:sess.shift, category:"END", ts, overtime});
-  // 実行中の業務があったときは、確定した区間を出して確認してもらう。
+  // 実行中の業務があったとき: サマリーON なら確認画面、OFF なら短いトーストだけ（タップ不要）。
   // 何も実行していなければ出すものが無いのでトーストだけ。
-  if(done) showDone(done); else toast(msg);
+  if(done){ if(showDoneSummary) showDone(done); else toast(`${done.label} 終了（${durText(done.since, done.until)}）`); }
+  else toast(msg);
 }
 
 $("#endBtn").onclick=async ()=>{ await endCurrent("記録を終了しました"); };
@@ -736,6 +744,12 @@ function speechAvailable(){ return ("webkitSpeechRecognition" in window) || ("Sp
 function initVoice(){
   buildVoiceIndex();
   const b=$("#voiceBtn"); if(b) b.onclick=toggleVoice;
+  const dt=$("#doneToggle");
+  if(dt){
+    dt.checked = showDoneSummary;
+    dt.onchange = ()=>{ showDoneSummary = dt.checked; localStorage.setItem(DONESUM, JSON.stringify(showDoneSummary));
+      toast(showDoneSummary ? "終了サマリーを表示します" : "終了サマリーを出しません"); };
+  }
 }
 function toggleVoice(){
   if(vOn){ stopVoice(); return; }
