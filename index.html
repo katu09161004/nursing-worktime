@@ -689,9 +689,10 @@ async function runCommand(m){
     setStatus("記録中: "+m.sub.label, true);
   }else if(m.type==="end"){
     endBeep();                                    // ピー ＝ 終わった
+    const doneLabel = current ? current.label : "";   // 終了する業務名を、消える前に控える
     await endCurrent("記録を終了しました");
-    speak("終わりました");
-    setStatus("記録を終了しました", true);
+    speak(doneLabel ? `${doneLabel}、終わりました` : "終わりました");
+    setStatus(doneLabel ? `${doneLabel} 終わりました` : "記録を終了しました", true);
   }else if(m.type==="undo"){
     endBeep();
     $("#undoBtn").click();
