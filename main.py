@@ -70,6 +70,23 @@ AUTH_ENABLED = bool(AUTH_PASSWORD)
 COOKIE_NAME = "nwt_session"
 COOKIE_DAYS = 30            # モバイルで毎回ログインさせないため長め
 
+# --- 音声コマンドのAI解釈（任意）---
+# 認識テキストを外部LLMに渡し、言い回し・意図から業務区分を推定する。
+# さくらのAI Engine（OpenAI互換・国内DC完結）を既定にしている。
+# config_local.py に:
+#   VOICE = {"api_key": "<さくらのAI EngineのAPIキー>", "model": "gpt-oss-120b"}
+# 未設定なら endpoint は無効を返し、フロントは端末内のあいまい一致のみで動く（外部送信なし）。
+try:
+    from config_local import VOICE as _VOICECFG   # type: ignore
+except Exception:
+    _VOICECFG = None
+_VOICECFG = _VOICECFG or {}
+VOICE_API_KEY = _VOICECFG.get("api_key") or os.environ.get("NWT_VOICE_KEY", "")
+VOICE_BASE_URL = (_VOICECFG.get("base_url")
+                  or os.environ.get("NWT_VOICE_BASE_URL", "https://api.ai.sakura.ad.jp/v1")).rstrip("/")
+VOICE_MODEL = _VOICECFG.get("model") or os.environ.get("NWT_VOICE_MODEL", "gpt-oss-120b")
+VOICE_ENABLED = bool(VOICE_API_KEY)
+
 # --- 公開パス接頭辞（既存サイトのサブパスに相乗りする場合に使う）---
 # 例: nginx が location /nwt/ で接頭辞を剥がして 127.0.0.1:8300 に渡す構成なら BASE_PATH="/nwt"。
 # アプリ自身は常に接頭辞なしのパス（/api/... 等）で動き、
@@ -481,6 +498,7 @@ def api_config():
         "wards": WARDS,
         "shifts": SHIFTS,
         "staff": STAFF,
+        "voice_ai": VOICE_ENABLED,   # 音声のAI解釈が使えるか（フロントは無効なら端末内一致のみ）
     }
 
 
@@ -687,6 +705,82 @@ def api_entries_bulk(b: BulkEntry):
                 inserted += 1
         conn.commit()
     return {"ok": True, "batch_id": batch, "inserted": inserted}
+
+
+# ===================== 音声コマンドのAI解釈 =====================
+class VoiceQuery(BaseModel):
+    text: str
+
+
+def _voice_chat(payload):
+    """さくらのAI Engine等（OpenAI互換 /chat/completions）を叩く。stdlibのみ。"""
+    import json as _json, urllib.request as _urlreq
+    body = _json.dumps(payload).encode("utf-8")
+    req = _urlreq.Request(
+        VOICE_BASE_URL + "/chat/completions", data=body, method="POST",
+        headers={"Content-Type": "application/json",
+                 "Authorization": "Bearer " + VOICE_API_KEY})
+    with _urlreq.urlopen(req, timeout=8) as r:
+        data = _json.loads(r.read().decode("utf-8"))
+    return data["choices"][0]["message"]["content"]
+
+
+def _extract_id(content):
+    """モデル出力から id を取り出す。JSONが崩れていても妥当なトークンを拾う。"""
+    import json as _json, re as _re
+    content = (content or "").strip()
+    m = _re.search(r"\{[^{}]*\}", content)
+    if m:
+        try:
+            return str(_json.loads(m.group(0)).get("id", "")).strip()
+        except Exception:
+            pass
+    m = _re.search(r"[a-z_]+\.[a-z_]+|end|undo|none", content)
+    return m.group(0) if m else ""
+
+
+@app.post("/api/voice/interpret")
+def api_voice_interpret(q: VoiceQuery):
+    """認識テキストを業務区分に対応づける（言い換え・意図を吸収）。
+    VOICE 未設定なら enabled=False を返し、フロントは端末内一致のみで動く（外部送信なし）。
+    外部が不調でも 200 で match=None を返し、フロントが端末内一致へ退避できるようにする。"""
+    text = (q.text or "").strip()
+    if not VOICE_ENABLED:
+        return {"ok": True, "enabled": False, "match": None}
+    if not text:
+        return {"ok": True, "enabled": True, "match": None}
+
+    listing = "\n".join(f"{c['key']}.{s['key']}\t{c['label']} / {s['label']}"
+                        for c in CATEGORIES for s in c["subs"])
+    system = (
+        "あなたは看護業務記録アプリの音声コマンド解釈器です。"
+        "看護師の発話を、下の一覧のうち最も意図が近い1つの id に対応づけます。"
+        "終了・おわり等は end、取り消し・訂正等は undo、どれにも当てはまらなければ none。"
+        "出力は JSON のみ、形式は {\"id\":\"<id|end|undo|none>\"}。説明や前置きは書かない。\n\n"
+        "【業務区分（id と 意味）】\n" + listing +
+        "\nend\t記録を終了する\nundo\t直前の打刻を取り消す"
+    )
+    payload = {
+        "model": VOICE_MODEL,
+        "messages": [{"role": "system", "content": system},
+                     {"role": "user", "content": text}],
+        "temperature": 0, "max_tokens": 200,
+    }
+    try:
+        vid = _extract_id(_voice_chat(payload))
+    except Exception as e:
+        return {"ok": True, "enabled": True, "match": None, "error": type(e).__name__}
+
+    if vid in ("end", "undo"):
+        return {"ok": True, "enabled": True, "match": {"command": vid}}
+    if vid and "." in vid:
+        ck, _, sk = vid.partition(".")
+        label = SUB_LABEL.get((ck, sk))
+        if label:
+            return {"ok": True, "enabled": True,
+                    "match": {"cat": ck, "sub": sk,
+                              "cat_label": CAT_LABEL.get(ck, ck), "sub_label": label}}
+    return {"ok": True, "enabled": True, "match": None}
 
 
 @app.get("/api/summary")

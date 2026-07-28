@@ -18,6 +18,7 @@ HANDOFF-config-distribute.md
 files/
 files.zip
 .DS_Store
+.playwright-mcp/
 
 # Python
 .venv/

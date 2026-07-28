@@ -20,3 +20,13 @@ DB = {
     "password": "ここにパスワード",
 }
 # ※ backend を外す or "sqlite" にすると従来のSQLite（worktime.db）で動く
+
+# 音声打刻のAI解釈（任意）。設定するとインターネット公開側で言い換え・意図まで拾える。
+# 既定はさくらのAI Engine（OpenAI互換・国内DC完結・月3,000回無料枠）。
+# 未設定なら記録画面は端末内の「読み・別名＋あいまい一致」のみで動く（外部送信なし）。
+# 院内LAN専用サーバ（外部通信不可）では設定しないこと。
+# VOICE = {
+#     "api_key": "ここにさくらのAI EngineのAPIキー(UUID)",
+#     "base_url": "https://api.ai.sakura.ad.jp/v1",   # 省略時この値
+#     "model": "gpt-oss-120b",                        # 反応の良い別モデルに変更可
+# }

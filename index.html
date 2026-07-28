@@ -150,6 +150,26 @@
   .list-mid{margin:14px 4px 8px; font-size:13px; font-weight:800; color:#5b6b7a; display:flex; align-items:center; gap:8px}
   .list-mid .sw{width:11px;height:11px;border-radius:3px;display:inline-block}
   .more-link{background:none;border:none;color:#0f766e;font-weight:700;font-size:13px;cursor:pointer;padding:0;margin:-4px 0 14px;display:inline-block}
+
+  /* ---- 音声で打刻 ---- */
+  .voicebar{display:flex; align-items:center; gap:12px; margin-top:22px}
+  .act.voice{flex:0 0 auto; display:flex; align-items:center; gap:8px}
+  .act.voice.on{background:var(--accent); color:#fff; border-color:transparent}
+  .act.voice.on .mic-dot{animation:micpulse 1s infinite}
+  .mic-dot{width:10px;height:10px;border-radius:50%;background:currentColor;display:inline-block;opacity:.85}
+  @keyframes micpulse{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1.25)}}
+  .voice-status{flex:1; font-size:13px; font-weight:700; color:var(--muted); min-height:18px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .voice-status.heard{color:var(--accent)}
+  .vconfirm{margin-top:12px; background:var(--panel); border:2px solid var(--accent); border-radius:14px;
+    box-shadow:var(--shadow); padding:14px 16px; display:flex; align-items:center; gap:12px}
+  .vconfirm.hide{display:none}
+  .vc-text{flex:1; font-size:16px; font-weight:800}
+  .vc-text b{color:var(--accent)}
+  .vc-btns{display:flex; gap:8px}
+  .vc-btns button{border:none; border-radius:12px; padding:12px 18px; font-size:15px; font-weight:800; cursor:pointer}
+  .vc-yes{background:var(--accent); color:#fff}
+  .vc-no{background:#eef2f4; color:var(--ink)}
 </style>
 </head>
 <body>
@@ -215,6 +235,20 @@
     <!-- 一覧ビュー: 全小分類を大分類ごとに並べる -->
     <div id="listScreen" class="hide"></div>
 
+    <!-- 音声で打刻（オンライン＝ネット接続かつHTTPS環境でのみ動作。院内オフラインは別途対応） -->
+    <div class="voicebar" id="voiceBar">
+      <button class="act voice" id="voiceBtn" type="button"><span class="mic-dot"></span><span id="voiceBtnLabel">音声で打刻</span></button>
+      <div class="voice-status" id="voiceStatus"></div>
+    </div>
+    <!-- 誤認識での誤記録を防ぐため、実行前に必ず確認を挟む（タップ／「はい・いいえ」で応答） -->
+    <div class="vconfirm hide" id="voiceConfirm">
+      <div class="vc-text"><b id="vcLabel">-</b> <span id="vcVerb">を記録</span>しますか？</div>
+      <div class="vc-btns">
+        <button class="vc-yes" id="vcYes" type="button">はい</button>
+        <button class="vc-no" id="vcNo" type="button">いいえ</button>
+      </div>
+    </div>
+
     <div class="actions">
       <button class="act undo" id="undoBtn">直前を取り消す</button>
       <button class="act end" id="endBtn">記録終了</button>
@@ -261,6 +295,7 @@ function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("sh
 async function boot(){
   CFG = await (await fetch("__BASE__api/config")).json();
   paintOt();
+  initVoice();
   if(sess && sess.staff){ showMain(); } else { showSetup(); }
   flushOutbox();
   setInterval(flushOutbox, 15000);
@@ -568,6 +603,184 @@ async function flushOutbox(){
 function updateQueue(){
   const ob=JSON.parse(localStorage.getItem(OUTBOX)||"[]");
   $("#queueInfo").textContent = ob.length ? `未送信 ${ob.length}件（自動再送）` : "";
+}
+
+/* ====================== 音声で打刻 ======================
+   端末内の「読み・別名＋あいまい一致」で即判定し、迷ったときだけ
+   /api/voice/interpret（AI解釈）に投げる。確定前にビープ＋読み上げで確認する。 */
+let vRec=null, vOn=false, vPending=null, vTimer=null, vAudio=null;
+
+// 区分キー → 読み・別名（必要に応じて増やせる。網羅しなくてもAIが拾う）
+const VSYN = {
+  hygiene:["せいけつ","清拭","体を拭","からだをふく","陰洗","部分浴"],
+  excretion:["はいせつ","おむつ","トイレ介助","ポータブル","導尿"],
+  meal:["しょくじ","食事介助","配膳","下膳","食介"],
+  obs:["バイタル","検温","観察","測定"],
+  comm:["会話","傾聴","説明"],
+  proc:["処置","ガーゼ交換","創処置"],
+  med_oral:["内服","与薬","服薬"],
+  med_inj:["注射","点滴","静注","筋注","ちゅうしゃ"],
+  record:["記録","看護記録","カルテ入力","soap","ソープ"],
+  handover:["申し送り","もうしおくり","引き継ぎ","ひきつぎ"],
+  conf:["カンファ","かんふぁ","カンファレンス"],
+  nursecall:["ナースコール","コール対応"],
+  phone:["電話","でんわ"],
+  break:["休憩","きゅうけい","昼休み"],
+  toilet:["トイレ"],
+};
+
+let VIDX=[];
+function vNorm(s){ return (s||"").replace(/[\s　、。・,./（）()「」\-]/g,"").toLowerCase(); }
+function buildVoiceIndex(){
+  VIDX=[];
+  (CFG.categories||[]).forEach(c=>c.subs.forEach(s=>{
+    const terms=new Set();
+    const add=x=>{ const n=vNorm(x); if(n.length>=2) terms.add(n); };
+    add(s.label);
+    s.label.split(/[・（）()／\/]/).forEach(add);   // 「安全・安楽」→安全/安楽 等
+    (VSYN[s.key]||[]).forEach(add);
+    VIDX.push({cat:c, sub:s, terms:[...terms]});
+  }));
+}
+
+// 端末内一致。確信が持てないときは conf:false を返し、AIに委ねる
+function localMatch(text){
+  const t=vNorm(text);
+  if(!t) return {type:"none"};
+  if(/(終了|おわり|終わり|記録終了|ストップ|すとっぷ|やめ)/.test(text)) return {type:"end"};
+  if(/(取り?消|とりけし|訂正|キャンセル|やり直)/.test(text)) return {type:"undo"};
+  let best=null, bestLen=0, tie=false;
+  for(const e of VIDX){
+    for(const term of e.terms){
+      let ok = (t===term) || t.includes(term) || (term.includes(t) && t.length>=2);
+      if(!ok) continue;
+      if(term.length>bestLen){ best=e; bestLen=term.length; tie=false; }
+      else if(term.length===bestLen && best && e.sub.key!==best.sub.key){ tie=true; }
+    }
+  }
+  if(best && !tie) return {type:"task", cat:best.cat, sub:best.sub};
+  return {type:"none"};   // 曖昧 or 未一致 → AIへ
+}
+
+async function aiInterpret(text){
+  if(!CFG.voice_ai) return {type:"none"};
+  try{
+    const r=await fetch("__BASE__api/voice/interpret",{method:"POST",
+      headers:{"Content-Type":"application/json"}, body:JSON.stringify({text})});
+    const d=await r.json();
+    if(!d || !d.match) return {type:"none"};
+    if(d.match.command) return {type:d.match.command};
+    const cat=(CFG.categories||[]).find(c=>c.key===d.match.cat);
+    const sub=cat&&cat.subs.find(s=>s.key===d.match.sub);
+    return (cat&&sub) ? {type:"task", cat, sub} : {type:"none"};
+  }catch(e){ return {type:"none"}; }
+}
+
+async function handleUtterance(text){
+  let m = localMatch(text);
+  if(m.type==="none" && CFG.voice_ai){ setStatus("解釈中… 「"+text+"」", true); m = await aiInterpret(text); }
+  if(m.type==="none"){ beep([340],0.12); speak("すみません、もう一度お願いします"); setStatus("該当なし: 「"+text+"」"); return; }
+  proposeCommand(m);
+}
+
+// 確定前の確認。ビープ2回＋「○○ですね」と読み上げる
+function proposeCommand(m){
+  vPending=m;
+  const label = m.type==="task" ? m.sub.label : (m.type==="end" ? "記録終了" : "直前の取り消し");
+  $("#vcLabel").textContent = label;
+  $("#vcVerb").textContent  = m.type==="task" ? "を記録" : (m.type==="end" ? "" : "を実行");
+  $("#voiceConfirm").classList.remove("hide");
+  setStatus("確認: 「"+label+"」 はい／いいえ", true);
+  beep([880,1175],0.09);
+  speak(m.type==="task" ? `${label}ですね。よろしければ、はい`
+      : m.type==="end"  ? "記録を終了しますか。はい、で確定"
+      :                   "直前を取り消しますか。はい、で確定");
+  clearTimeout(vTimer); vTimer=setTimeout(cancelPending, 8000);
+}
+function cancelPending(){ vPending=null; $("#voiceConfirm").classList.add("hide"); clearTimeout(vTimer); if(vOn) setStatus("お話しください"); }
+async function confirmPending(){
+  const m=vPending; if(!m) return;
+  cancelPending(); beep([1320],0.08);
+  if(m.type==="task"){ await punch(m.cat, m.sub); speak(`${m.sub.label}を記録しました`); }
+  else if(m.type==="end"){ await endCurrent("記録を終了しました"); speak("記録を終了しました"); }
+  else if(m.type==="undo"){ $("#undoBtn").click(); speak("取り消しました"); }
+}
+
+/* ---- 音のフィードバック（端末内・外部通信なし）---- */
+function beep(freqs, dur){
+  try{
+    vAudio = vAudio || new (window.AudioContext||window.webkitAudioContext)();
+    if(vAudio.state==="suspended") vAudio.resume();
+    let t=vAudio.currentTime;
+    freqs.forEach(f=>{
+      const o=vAudio.createOscillator(), g=vAudio.createGain();
+      o.type="sine"; o.frequency.value=f; o.connect(g); g.connect(vAudio.destination);
+      g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.22,t+0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+      o.start(t); o.stop(t+dur); t+=dur+0.05;
+    });
+  }catch(e){}
+}
+function speak(text){
+  try{
+    if(!("speechSynthesis" in window)) return;
+    speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(text); u.lang="ja-JP"; u.rate=1.05;
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+function setStatus(msg, heard){
+  const el=$("#voiceStatus"); if(!el) return;
+  el.textContent = msg||""; el.classList.toggle("heard", !!heard);
+}
+
+/* ---- 認識のライフサイクル ---- */
+function speechAvailable(){ return ("webkitSpeechRecognition" in window) || ("SpeechRecognition" in window); }
+function initVoice(){
+  buildVoiceIndex();
+  const b=$("#voiceBtn"); if(b) b.onclick=toggleVoice;
+  const y=$("#vcYes"); if(y) y.onclick=confirmPending;
+  const n=$("#vcNo");  if(n) n.onclick=()=>{ cancelPending(); speak("キャンセルしました"); };
+}
+function toggleVoice(){
+  if(vOn){ stopVoice(); return; }
+  if(!window.isSecureContext){ toast("音声入力にはHTTPS接続が必要です"); return; }
+  if(!speechAvailable()){ toast("この端末は音声認識に未対応です"); return; }
+  startVoice();
+}
+function startVoice(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  vRec=new SR(); vRec.lang="ja-JP"; vRec.continuous=true; vRec.interimResults=true;
+  vRec.onresult=onVoiceResult;
+  vRec.onerror=e=>{
+    if(e.error==="not-allowed"||e.error==="service-not-allowed"){ toast("マイクの許可が必要です"); stopVoice(); }
+    else if(e.error==="network"){ toast("音声認識に接続できません"); }
+  };
+  vRec.onend=()=>{ if(vOn){ try{ vRec.start(); }catch(e){} } };
+  try{ vRec.start(); }catch(e){}
+  vOn=true; $("#voiceBtn").classList.add("on"); $("#voiceBtnLabel").textContent="聞き取り中… 停止";
+  setStatus("お話しください（例:「清潔」「記録終了」）");
+  beep([660],0.05); speak("");   // ユーザー操作起点で音声出力を解錠
+}
+function stopVoice(){
+  vOn=false; if(vRec){ try{ vRec.stop(); }catch(e){} vRec=null; }
+  const b=$("#voiceBtn"); if(b){ b.classList.remove("on"); $("#voiceBtnLabel").textContent="音声で打刻"; }
+  cancelPending(); setStatus("");
+}
+function onVoiceResult(ev){
+  let interim="", finalText="";
+  for(let i=ev.resultIndex;i<ev.results.length;i++){
+    const r=ev.results[i];
+    if(r.isFinal) finalText+=r[0].transcript; else interim+=r[0].transcript;
+  }
+  if(interim && !finalText) setStatus("… "+interim, true);
+  if(!finalText) return;
+  const t=finalText.trim(); if(!t) return;
+  if(vPending){
+    if(/(はい|オッケー|オーケー|ok|うん|そうです|それで)/i.test(t)){ confirmPending(); return; }
+    if(/(いいえ|ちがう|違う|やめ|キャンセル|だめ)/.test(t)){ cancelPending(); speak("キャンセルしました"); return; }
+  }
+  handleUtterance(t);
 }
 
 boot();
