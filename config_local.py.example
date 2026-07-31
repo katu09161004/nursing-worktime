@@ -21,12 +21,32 @@ DB = {
 }
 # ※ backend を外す or "sqlite" にすると従来のSQLite（worktime.db）で動く
 
-# 音声打刻のAI解釈（任意）。設定するとインターネット公開側で言い換え・意図まで拾える。
-# 既定はさくらのAI Engine（OpenAI互換・国内DC完結・月3,000回無料枠）。
-# 未設定なら記録画面は端末内の「読み・別名＋あいまい一致」のみで動く（外部送信なし）。
-# 院内LAN専用サーバ（外部通信不可）では設定しないこと。
+# ============================================================
+# 音声打刻（記録画面の「🎤 音声で打刻」）
+# ------------------------------------------------------------
+# 部品は3つ：
+#   ① 音声認識(STT)   … 音声→テキスト
+#   ② AI解釈(VOICE)   … テキスト→業務区分（言い換え・意図を吸収。任意）
+#   ③ 音声出力/ビープ … 端末のTTS + WebAudio（設定不要・常に有効）
+# ①②とも未設定なら、端末内の「読み・別名＋あいまい一致」だけで動く（外部送信なし）。
+
+# --- ① 音声認識(STT) ---
+# 既定は "webspeech"（ブラウザ内蔵の音声認識＝Google/Apple、要インターネット）。VPS向け。
+# 院内オフラインは "whisper"：端末で録音し、オンプレの文字起こしサーバへPOSTする。
+#   例（DL380：nginxで /nwt-stt/transcribe を aqua-stt(:8080)/transcribe に同一オリジンproxy）
+# STT = {"mode": "whisper", "url": "/nwt-stt/transcribe", "field": "audio"}
+
+# --- ② AI解釈(VOICE)。OpenAI互換の /chat/completions を叩く ---
+# インターネット公開側（VPS）＝さくらのAI Engine（国内DC完結・月3,000回無料枠）:
 # VOICE = {
 #     "api_key": "ここにさくらのAI EngineのAPIキー(UUID)",
 #     "base_url": "https://api.ai.sakura.ad.jp/v1",   # 省略時この値
 #     "model": "gpt-oss-120b",                        # 反応の良い別モデルに変更可
 # }
+# 院内オフライン（DL380）＝ローカルのOllama（外部通信なし。api_keyはダミーでよい）:
+# VOICE = {
+#     "api_key": "ollama",
+#     "base_url": "http://127.0.0.1:11434/v1",
+#     "model": "qwen2.5:7b-instruct",
+# }
+# ※ マイクはHTTPS(secure context)必須。院内は自己署名HTTPSのポートで配信すること。
