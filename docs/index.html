@@ -73,7 +73,7 @@
   <div class="wrap">
     <div class="eyebrow">Nursing Workload Logger</div>
     <h1>看護業務量調査ツール</h1>
-    <p class="lead">看護業務にかかる時間を <b>「ボタン1タップ」</b> で記録し、
+    <p class="lead">看護業務にかかる時間を <b>「ボタン1タップ」</b>（または<b>音声</b>）で記録し、
       AI（音声記録・退院時サマリー・議事録）導入の<b>前後で効果を測る基準値</b>を集めるための、
       オンプレ完結・PHIを扱わないツールです。</p>
     <div class="cta">
@@ -91,6 +91,10 @@
     <p class="big">看護師は「今やっている業務」のボタンを押すだけ。次のタップまでの時間が、その業務の
       所要時間として自動で記録されます。「開始／終了」の2度押しは不要。集めたデータは、
       <b>AI導入前後の比較ベースライン</b>と<b>多職種協働加算のエビデンス</b>の両方に使えます。</p>
+    <p class="big">業務区分は、施設の業務量調査集計用紙に合わせた
+      <b>大分類4（A 患者中心の看護活動 ／ B 看護単位中心の活動 ／ C 職員中心の活動 ／ D その他）
+      ・中分類10・小分類43</b>。集計結果も同じ並びで出るので、そのまま集計用紙の合計行に転記できます。
+      区分は <code>main.py</code> の <code>CATEGORIES</code> 1か所で定義しており、施設ごとに差し替えられます。</p>
   </div>
 </section>
 
@@ -100,11 +104,13 @@
     <div class="shots">
       <figure>
         <img src="./shots/recording.png" alt="記録画面">
-        <figcaption>記録画面（モバイル）。上部に「今の業務」と経過時間、押した業務が色付きになる。</figcaption>
+        <figcaption>記録画面（モバイル）。上部に「今の業務」と経過時間。中分類カード → 小分類の2段階、
+          「一覧から選ぶ」に切り替えれば全43区分をそのまま表示。勤務時間内／外もここで切り替える。</figcaption>
       </figure>
       <figure>
         <img src="./shots/dashboard.png" alt="集計ダッシュボード">
-        <figcaption>集計ダッシュボード。最上部に AI 効果測定対象業務の「分／シフト」がベースラインとして並ぶ。</figcaption>
+        <figcaption>集計ダッシュボード。上部に AI 効果測定対象業務の「分／シフト」がベースラインとして並び、
+          その下に中分類別の時間配分と、集計用紙と同じ並びの合計表（勤務時間内／外の内訳つき）。</figcaption>
       </figure>
     </div>
   </div>
@@ -115,17 +121,25 @@
     <h2><span class="bar"></span>特長</h2>
     <div class="feat">
       <div class="card"><span class="k">低負担</span><h3>ワンタップ記録</h3>
-        <p>業務が切り替わるたびにボタンを1回押すだけ。所要時間は自動算出。</p></div>
+        <p>業務が切り替わるたびにボタンを1回押すだけ。所要時間は自動算出。担当者は従業員番号を1回入れるだけ。</p></div>
+      <div class="card"><span class="k">手が塞がる時</span><h3>音声で打刻</h3>
+        <p>「清潔」と言えば即記録し、ピピッ＋「清潔、記録します」と音声で返す。「終わりました」で終了。</p></div>
       <div class="card"><span class="k">現場対応</span><h3>オフライン退避</h3>
         <p>WiFiが切れても端末内に一時保存し、復帰時に自動再送。記録が消えない。</p></div>
       <div class="card"><span class="k">目的直結</span><h3>AIベースライン自動集計</h3>
-        <p>SOAP入力・サマリー・カンファレンスを対象区分として分離し「分／シフト」で表示。</p></div>
+        <p>看護記録・サマリー・カンファレンスを対象区分として分離し「分／シフト」で表示。</p></div>
+      <div class="card"><span class="k">そのまま使える</span><h3>集計用紙と同じ区分</h3>
+        <p>大分類A〜D・中分類10・小分類43。集計表も同じ並びで出るので転記がいらない。</p></div>
+      <div class="card"><span class="k">残業も見える</span><h3>勤務時間内／外を分けて集計</h3>
+        <p>ワンタップで切り替え。時間外に寄っている業務がそのまま数字で出る。</p></div>
       <div class="card"><span class="k">安全</span><h3>PHIを扱わない</h3>
-        <p>記録するのは業務区分と時刻だけ。担当者は匿名ID。患者情報は一切入力しない設計。</p></div>
+        <p>記録するのは業務区分と時刻だけ。担当者は従業員番号のみ。患者情報は一切入力しない設計。</p></div>
       <div class="card"><span class="k">自己完結</span><h3>オンプレ／外部通信なし</h3>
-        <p>FastAPI + SQLite。院内サーバ1台で完結。データは1ファイルでバックアップ可。</p></div>
+        <p>FastAPI + PostgreSQL（小規模ならSQLite）。院内サーバ1台で完結。音声も院内STTで閉じられる。</p></div>
+      <div class="card"><span class="k">併用可</span><h3>紙・Excelの記録も合算</h3>
+        <p>Excel集計シートからの一括投入APIに対応。Web打刻とExcel分を同じ集計に載せられる。</p></div>
       <div class="card"><span class="k">運用性</span><h3>モバイル＆常駐化</h3>
-        <p>ブラウザで開くだけ、ホーム画面追加でアプリ風。systemdで常駐。</p></div>
+        <p>ブラウザで開くだけ、ホーム画面追加でアプリ風。systemdで常駐。HTTPSでマイクも使える。</p></div>
     </div>
   </div>
 </section>
@@ -144,29 +158,54 @@
 
 <section>
   <div class="wrap">
-    <h2><span class="bar"></span>使い方（看護師）</h2>
-    <ol class="steps">
-      <li>ブラウザで記録画面を開く（ホーム画面に追加しておくと便利）。</li>
-      <li>最初に担当者・病棟・勤務帯を選ぶ（初回だけ）。</li>
-      <li>業務を始めるたびに、その区分ボタンを1タップ。</li>
-      <li>勤務の終わりに「記録終了」。押し間違いは「直前を取り消す」。</li>
-    </ol>
+    <h2><span class="bar"></span>音声で打刻（任意機能）</h2>
+    <p class="big">記録画面の「🎤 音声で打刻」。業務名を言うと<b>その場で記録開始</b>し、ピピッ＋「○○、記録します」と
+      音声で返します。「終わりました」でピー＋「○○、終わりました」。確認のやり取りは挟まない即時モードで、
+      間違いは「取り消して」またはボタンで戻します。まず端末内の読み・別名のあいまい一致で判定し、
+      迷ったときだけ意図解釈AIに投げます（STT・AIとも未設定なら端末内判定だけで動作＝外部送信なし）。</p>
+    <div class="feat">
+      <div class="card"><span class="k">院外（VPS）</span><h3>ブラウザ内蔵の音声認識</h3>
+        <p>Web Speech API ＋ OpenAI互換LLMで意図解釈。マイクは HTTPS 必須。</p></div>
+      <div class="card"><span class="k">院内（オフライン）</span><h3>オンプレ文字起こし</h3>
+        <p>端末で録音 → 院内の faster-whisper 等へPOST、解釈もローカルLLM。外部通信なしで完結。</p></div>
+    </div>
+    <p class="demo-note" style="color:var(--muted);font-size:12.5px;margin-top:10px">
+      ※ 上のデモでも音声ボタンは動きます（Chrome / HTTPS）。デモではAI解釈を使わず、端末内の一致のみです。</p>
   </div>
 </section>
 
 <section style="background:#eef2f4">
   <div class="wrap">
+    <h2><span class="bar"></span>使い方（看護師）</h2>
+    <ol class="steps">
+      <li>ブラウザで記録画面を開く（ホーム画面に追加しておくと便利）。</li>
+      <li>最初に従業員番号を入れ、病棟・勤務帯を選ぶ（初回だけ。次回から自動で開く）。</li>
+      <li>業務を始めるたびに、中分類 → 小分類の2タップ（「一覧から選ぶ」なら1タップ）。
+        手が塞がっていれば「🎤 音声で打刻」で言うだけ。</li>
+      <li>時間外に入ったら「勤務時間外」に切り替える。</li>
+      <li>勤務の終わりに「記録終了」。押し間違いは「直前を取り消す」。</li>
+    </ol>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
     <h2><span class="bar"></span>技術構成</h2>
     <div class="tech">
       <span class="tag">Python / FastAPI</span>
-      <span class="tag">SQLite</span>
+      <span class="tag">PostgreSQL / SQLite</span>
       <span class="tag">Vanilla JS（依存なし）</span>
       <span class="tag">systemd 常駐</span>
+      <span class="tag">nginx + TLS</span>
       <span class="tag">PWA（ホーム画面追加）</span>
       <span class="tag">オフライン退避（localStorage）</span>
+      <span class="tag">音声認識：Web Speech API / オンプレ Whisper</span>
+      <span class="tag">意図解釈：OpenAI互換LLM（任意・未設定なら端末内のみ）</span>
     </div>
-    <p class="big" style="margin-top:14px">導入手順は <a href="https://github.com/katu09161004/nursing-worktime/blob/main/INSTALL.md">INSTALL.md</a>、
-      モバイル接続は <a href="https://github.com/katu09161004/nursing-worktime/blob/main/DEPLOY-mobile.md">DEPLOY-mobile.md</a> を参照。</p>
+    <p class="big" style="margin-top:14px">導入手順・設定は
+      <a href="https://github.com/katu09161004/nursing-worktime/blob/main/README.md">README.md</a>、
+      モバイル端末からの接続は
+      <a href="https://github.com/katu09161004/nursing-worktime/blob/main/DEPLOY-mobile-vps.md">DEPLOY-mobile-vps.md</a> を参照。</p>
   </div>
 </section>
 

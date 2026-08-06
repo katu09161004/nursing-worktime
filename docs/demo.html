@@ -36,15 +36,47 @@
   .now-body{display:flex; align-items:baseline; gap:12px; margin-top:8px; flex-wrap:wrap}
   .now-label{font-size:22px; font-weight:800; letter-spacing:.01em}
   .now-idle{color:var(--muted); font-weight:700}
-  .now-timer{font-variant-numeric:tabular-nums; font-size:20px; font-weight:700; color:var(--accent)}
+  .now-timer{font-variant-numeric:tabular-nums; font-size:30px; font-weight:800; color:var(--accent); line-height:1}
   .now-since{font-size:12px; color:var(--muted)}
+  .now-hint{font-size:12px; color:var(--muted); font-weight:700; flex-basis:100%; margin-top:2px}
+  .now-end{margin-left:auto; border:none; border-radius:10px; background:var(--ink); color:#fff;
+           padding:10px 16px; font-size:14px; font-weight:800; cursor:pointer}
   .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);display:inline-block;margin-right:6px;
        box-shadow:0 0 0 0 rgba(15,118,110,.5); animation:pulse 2s infinite}
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(15,118,110,.45)}70%{box-shadow:0 0 0 10px rgba(15,118,110,0)}100%{box-shadow:0 0 0 0 rgba(15,118,110,0)}}
 
   /* ---- カテゴリ ---- */
-  .group{margin:16px 0}
-  .group-h{display:flex; align-items:center; gap:8px; margin:0 4px 8px; font-size:13px; font-weight:800; color:var(--muted)}
+  .maj-h{margin:22px 4px 6px; font-size:15px; font-weight:800; color:var(--ink);
+         border-bottom:2px solid var(--line); padding-bottom:6px}
+
+  /* ---- 1段目: 中分類カード ---- */
+  .cat{display:block; width:100%; text-align:left; margin:10px 0; cursor:pointer;
+       background:var(--panel); border:1px solid var(--line); border-left:6px solid var(--c,#0f766e);
+       border-radius:14px; box-shadow:var(--shadow); padding:14px 16px}
+  .cat-top{display:flex; align-items:center; justify-content:space-between; gap:10px}
+  .cat-name{font-size:17px; font-weight:800; color:var(--ink)}
+  .cat-arrow{color:var(--muted); font-size:18px; font-weight:800}
+  .cat-list{margin-top:6px; font-size:12px; color:var(--muted); line-height:1.5}
+  .cat.on{border-color:transparent; border-left-color:var(--c,#0f766e); background:var(--c,#0f766e)}
+  .cat.on .cat-name,.cat.on .cat-arrow{color:#fff}
+  .cat.on .cat-list{color:rgba(255,255,255,.9)}
+  .cat-run{display:inline-block; font-size:11px; font-weight:800; color:#fff;
+           background:rgba(255,255,255,.25); border-radius:6px; padding:2px 7px; margin-left:8px}
+
+  /* ---- 2段目: 小分類 ---- */
+  .sub-top{display:flex; align-items:center; gap:12px; margin:14px 4px 12px}
+  .back-btn{border:1px solid var(--line); background:var(--panel); border-radius:10px;
+            padding:9px 14px; font-size:14px; font-weight:800; color:var(--ink); cursor:pointer}
+  .sub-title{display:flex; align-items:center; gap:8px; font-size:17px}
+  .note{display:block; font-size:10px; font-weight:600; color:var(--muted); margin-top:3px; line-height:1.35}
+  .btn.on .note{color:rgba(255,255,255,.9)}
+
+  /* ---- 勤務時間内/外 トグル ---- */
+  .ot{display:flex; gap:6px; margin-top:10px; background:var(--bg); border-radius:12px; padding:4px}
+  .ot button{flex:1; border:none; background:transparent; border-radius:9px; padding:9px 8px;
+             font-size:13px; font-weight:800; color:var(--muted); cursor:pointer}
+  .ot button.sel{background:var(--panel); color:var(--ink); box-shadow:var(--shadow)}
+  .ot button.sel[data-ot="1"]{background:var(--warn); color:#fff}
   .swatch{width:12px;height:12px;border-radius:3px}
   .grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px}
   @media(min-width:560px){.grid{grid-template-columns:repeat(3,1fr)}}
@@ -84,33 +116,82 @@
   .chip.sel{background:var(--accent); color:#fff; border-color:transparent}
   .staffgrid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px}
   .staffgrid .chip{text-align:center}
+  .staff-input{width:100%; padding:14px 16px; border:1px solid var(--line); border-radius:12px;
+    font-size:18px; font-weight:700; letter-spacing:.06em; background:#fff; color:var(--ink)}
+  .staff-input:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(15,118,110,.15)}
+  .staff-hint{font-size:12px; color:var(--muted); margin-top:6px}
   .start{width:100%; margin-top:6px; padding:16px; border:none; border-radius:14px; background:var(--ink); color:#fff; font-size:16px; font-weight:800; cursor:pointer}
   .start:disabled{opacity:.4}
   .hide{display:none}
+
+  /* ---- 業務終了サマリー ---- */
+  .overlay{position:fixed; inset:0; background:rgba(15,23,42,.45); z-index:30;
+           display:flex; align-items:center; justify-content:center; padding:20px}
+  /* .hide より後に .overlay を書いているため、詳細度で上書きしないと常時表示になる */
+  .overlay.hide{display:none}
+  .done{background:var(--panel); border-radius:20px; box-shadow:var(--shadow);
+        padding:24px 22px; width:100%; max-width:380px; text-align:center}
+  .done-h{font-size:13px; font-weight:800; color:var(--muted); margin-bottom:10px}
+  .done-label{font-size:24px; font-weight:800; line-height:1.3; margin-bottom:14px}
+  .done-range{font-size:16px; font-weight:700; color:var(--ink); font-variant-numeric:tabular-nums}
+  .done-dur{font-size:34px; font-weight:800; color:var(--accent); margin:8px 0 20px;
+            font-variant-numeric:tabular-nums; line-height:1}
+  .done-ok{width:100%; padding:16px; border:none; border-radius:14px; background:var(--ink);
+           color:#fff; font-size:17px; font-weight:800; cursor:pointer}
 
   .toast{position:fixed; left:50%; bottom:24px; transform:translateX(-50%);
     background:var(--ink); color:#fff; padding:12px 18px; border-radius:12px; font-weight:700; font-size:14px;
     box-shadow:var(--shadow); opacity:0; transition:opacity .2s; pointer-events:none; z-index:20}
   .toast.show{opacity:1}
+  .vw{margin:14px 0 4px}
+  .list-mid{margin:14px 4px 8px; font-size:13px; font-weight:800; color:#5b6b7a; display:flex; align-items:center; gap:8px}
+  .list-mid .sw{width:11px;height:11px;border-radius:3px;display:inline-block}
+  .more-link{background:none;border:none;color:#0f766e;font-weight:700;font-size:13px;cursor:pointer;padding:0;margin:-4px 0 14px;display:inline-block}
+
+  /* ---- 音声で打刻 ---- */
+  .voicebar{display:flex; align-items:center; gap:12px; margin:0 0 14px}
+  .setrow{display:flex; align-items:center; gap:8px; margin-top:16px; font-size:13px; font-weight:700; color:var(--muted); cursor:pointer}
+  .setrow input{width:20px; height:20px; accent-color:var(--accent)}
+  .act.voice{flex:0 0 auto; display:flex; align-items:center; gap:8px}
+  .act.voice.on{background:var(--accent); color:#fff; border-color:transparent}
+  .act.voice.on .mic-dot{animation:micpulse 1s infinite}
+  .mic-dot{width:10px;height:10px;border-radius:50%;background:currentColor;display:inline-block;opacity:.85}
+  @keyframes micpulse{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1.25)}}
+  .voice-status{flex:1; font-size:13px; font-weight:700; color:var(--muted); min-height:18px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .voice-status.heard{color:var(--accent)}
+  .vconfirm{margin-top:12px; background:var(--panel); border:2px solid var(--accent); border-radius:14px;
+    box-shadow:var(--shadow); padding:14px 16px; display:flex; align-items:center; gap:12px}
+  .vconfirm.hide{display:none}
+  .vc-text{flex:1; font-size:16px; font-weight:800}
+  .vc-text b{color:var(--accent)}
+  .vc-btns{display:flex; gap:8px}
+  .vc-btns button{border:none; border-radius:12px; padding:12px 18px; font-size:15px; font-weight:800; cursor:pointer}
+  .vc-yes{background:var(--accent); color:#fff}
+  .vc-no{background:#eef2f4; color:var(--ink)}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div style="max-width:760px;margin:0 auto 10px;padding:9px 12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;color:#9a3412;font-size:12px;font-weight:700;text-align:center">デモ版：サンプル動作です。データは端末内のみで、サーバには送信されません。 <a href="./demo-dashboard.html" style="color:#0f766e">集計デモを見る →</a></div>
+  <div style="max-width:960px;margin:0 auto 10px;padding:9px 12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;color:#9a3412;font-size:12px;font-weight:700;text-align:center">デモ版：サンプル動作です。データは端末内のみで、サーバには送信されません。 <a href="./demo-dashboard.html" style="color:#0f766e">集計デモを見る →</a></div>
 
   <!-- セットアップ -->
   <section id="setup" class="setup hide">
     <h1>記録を始める</h1>
-    <p>担当者・病棟・勤務帯を選んでください。次回から自動で開きます。</p>
+    <p>従業員番号を入力し、病棟を選んでください。勤務帯は前回のまま使えます。次回から自動で開きます。</p>
     <div class="field">
-      <label>担当者（匿名ID）</label>
-      <div id="staffChips" class="staffgrid"></div>
+      <label>従業員番号</label>
+      <input type="text" id="staffInput" class="staff-input" inputmode="text"
+             autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false"
+             placeholder="例: 100234 / NS12" maxlength="20">
+      <div class="staff-hint">半角の数字・英字で入力してください（英字は大文字に統一されます）</div>
     </div>
     <div class="field">
       <label>病棟</label>
       <div id="wardChips" class="chips"></div>
     </div>
-    <div class="field">
+    <button type="button" id="moreToggle" class="more-link">▾ 勤務帯を変更</button>
+    <div class="field hide" id="shiftField">
       <label>勤務帯</label>
       <div id="shiftChips" class="chips"></div>
     </div>
@@ -127,9 +208,39 @@
       <div class="now-body" id="nowBody">
         <span class="now-idle">記録待機中 — 業務ボタンを押してください</span>
       </div>
+      <div class="ot" id="otToggle">
+        <button data-ot="0" class="sel">勤務時間内</button>
+        <button data-ot="1">勤務時間外</button>
+      </div>
+      <label class="setrow"><input type="checkbox" id="doneToggle"> 業務終了時にサマリー画面（OK）を出す</label>
     </div>
 
-    <div id="groups"></div>
+    <!-- 表示切替: 分類から / 一覧から -->
+    <div class="ot vw" id="viewToggle">
+      <button data-vw="cat" class="sel">分類から選ぶ</button>
+      <button data-vw="list">一覧から選ぶ</button>
+    </div>
+
+    <!-- 音声で打刻（表示切替の下）。オンライン＝ネット接続かつHTTPS環境でのみ動作 -->
+    <div class="voicebar" id="voiceBar">
+      <button class="act voice" id="voiceBtn" type="button"><span class="mic-dot"></span><span id="voiceBtnLabel">音声で打刻</span></button>
+      <div class="voice-status" id="voiceStatus"></div>
+    </div>
+
+    <!-- 1段目: 中分類を選ぶ（分類ビュー） -->
+    <div id="catScreen"></div>
+
+    <!-- 2段目: 選んだ中分類の小分類だけを出す -->
+    <div id="subScreen" class="hide">
+      <div class="sub-top">
+        <button class="back-btn" id="backBtn">← 戻る</button>
+        <div class="sub-title"><span class="swatch" id="subSwatch"></span><b id="subTitle">-</b></div>
+      </div>
+      <div id="subGrid" class="grid"></div>
+    </div>
+
+    <!-- 一覧ビュー: 全小分類を大分類ごとに並べる -->
+    <div id="listScreen" class="hide"></div>
 
     <div class="actions">
       <button class="act undo" id="undoBtn">直前を取り消す</button>
@@ -137,11 +248,22 @@
     </div>
 
     <div class="foot">
-      <a class="link" href="./demo-dashboard.html" target="_blank">集計ダッシュボード →</a>
+      <span><a class="link" href="./demo-dashboard.html" target="_blank">集計ダッシュボード →</a>　<a class="link" href="./manual.html" target="_blank">使い方 →</a></span>
       <span id="queueInfo" class="queue"></span>
     </div>
   </section>
 
+</div>
+
+<!-- 業務終了サマリー（OKで閉じる） -->
+<div id="doneOverlay" class="overlay hide">
+  <div class="done">
+    <div class="done-h">業務を終了しました</div>
+    <div class="done-label" id="doneLabel">-</div>
+    <div class="done-range" id="doneRange">-</div>
+    <div class="done-dur" id="doneDur">-</div>
+    <button class="done-ok" id="doneOk">OK</button>
+  </div>
 </div>
 
 <div id="toast" class="toast"></div>
@@ -149,7 +271,7 @@
 
 <script>
 /* ===== DEMO MODE: バックエンド無し・全てブラウザ内で動作 ===== */
-const DEMO_CONFIG = {"categories": [{"key": "direct", "label": "直接看護", "color": "#0f766e", "subs": [{"key": "obs", "label": "観察・バイタル測定"}, {"key": "care", "label": "処置・与薬"}, {"key": "adl", "label": "清潔・排泄ケア"}, {"key": "move", "label": "移乗・移動介助"}, {"key": "explain", "label": "患者対応・説明"}]}, {"key": "indirect", "label": "間接看護", "color": "#2563eb", "subs": [{"key": "order", "label": "指示受け・確認"}, {"key": "prep", "label": "物品準備・片付け"}, {"key": "env", "label": "環境整備"}, {"key": "coord", "label": "連絡・調整"}]}, {"key": "record", "label": "記録", "color": "#b45309", "subs": [{"key": "soap", "label": "看護記録・SOAP入力", "ai_tool": "medai SOAP Voice"}, {"key": "summary", "label": "退院時サマリー作成", "ai_tool": "SummyAI"}, {"key": "chart", "label": "温度板・観察記録入力"}, {"key": "doc", "label": "その他書類・記録"}]}, {"key": "share", "label": "情報共有", "color": "#7c3aed", "subs": [{"key": "handover", "label": "申し送り"}, {"key": "conf", "label": "カンファレンス・会議", "ai_tool": "議事録自動生成"}, {"key": "phone", "label": "電話・連絡対応"}]}, {"key": "misc", "label": "移動・教育・その他", "color": "#475569", "subs": [{"key": "walk", "label": "移動（病棟内・院内）"}, {"key": "edu", "label": "指導・教育・委員会"}, {"key": "other", "label": "その他業務"}]}, {"key": "off", "label": "休憩・待機", "color": "#64748b", "subs": [{"key": "break", "label": "休憩"}, {"key": "standby", "label": "待機"}]}], "wards": ["病棟A", "病棟B", "病棟C", "その他"], "shifts": ["日勤", "夜勤", "早出", "遅出"], "staff": ["N-01", "N-02", "N-03", "N-04", "N-05", "N-06", "N-07", "N-08", "N-09", "N-10", "N-11", "N-12", "N-13", "N-14", "N-15", "N-16", "N-17", "N-18", "N-19", "N-20"]};
+const DEMO_CONFIG = {"categories": [{"key": "direct1", "label": "直接看護Ⅰ", "group": "A 患者中心の看護活動", "color": "#0f766e", "subs": [{"key": "hygiene", "label": "清潔"}, {"key": "excretion", "label": "排泄"}, {"key": "meal", "label": "食事"}, {"key": "safety", "label": "安全・安楽"}, {"key": "obs", "label": "測定・観察"}, {"key": "comm", "label": "コミュニケーション"}, {"key": "roomenv", "label": "病室環境整備"}]}, {"key": "direct2", "label": "直接看護Ⅱ", "group": "A 患者中心の看護活動", "color": "#0d9488", "subs": [{"key": "proc", "label": "看護処置", "note": "看護師独自又は医師の指示により看護師が実施"}, {"key": "proc_assist", "label": "処置の介助", "note": "医師と共に実施"}, {"key": "med_oral", "label": "与薬（内服・外用・他）"}, {"key": "med_inj", "label": "与薬（注射）"}, {"key": "round", "label": "回診の介助"}, {"key": "exam", "label": "検査"}, {"key": "patrol", "label": "病室巡視"}, {"key": "me_prep", "label": "MEの使用準備"}]}, {"key": "direct3", "label": "直接看護Ⅲ", "group": "A 患者中心の看護活動", "color": "#14b8a6", "subs": [{"key": "guidance", "label": "患者指導"}, {"key": "transport", "label": "患者搬送"}, {"key": "errand", "label": "患者の用事"}, {"key": "transfer", "label": "転室・転棟"}]}, {"key": "indirect", "label": "間接看護", "group": "A 患者中心の看護活動", "color": "#b45309", "subs": [{"key": "record", "label": "看護記録", "ai_tool": "medai SOAP Voice"}, {"key": "careplan", "label": "看護計画"}, {"key": "summary", "label": "サマリー", "ai_tool": "SummyAI"}, {"key": "fee_record", "label": "診療報酬に係る記録", "note": "入退院診療計画書・褥瘡・SGA等、但し看護必要度は含まない"}, {"key": "handover", "label": "引継ぎ"}, {"key": "conf", "label": "カンファレンス", "ai_tool": "議事録自動生成"}, {"key": "order", "label": "指示受け・報告"}, {"key": "info", "label": "情報収集"}]}, {"key": "supplies", "label": "物品管理", "group": "B 看護単位中心の活動", "color": "#2563eb", "subs": [{"key": "drug", "label": "薬品"}, {"key": "consumable", "label": "消耗品"}, {"key": "sterile", "label": "滅菌器材"}]}, {"key": "env", "label": "環境整備", "group": "B 看護単位中心の活動", "color": "#3b82f6", "subs": [{"key": "housekeeping", "label": "ハウスキーピング"}, {"key": "equipment", "label": "器材の整備"}, {"key": "wipecart", "label": "清拭車の準備"}]}, {"key": "clerical", "label": "事務", "group": "B 看護単位中心の活動", "color": "#6366f1", "subs": [{"key": "general", "label": "事務一般"}, {"key": "transport_other", "label": "搬送（患者以外）"}]}, {"key": "contact", "label": "連絡", "group": "B 看護単位中心の活動", "color": "#7c3aed", "subs": [{"key": "nursecall", "label": "ナースコール"}, {"key": "phone", "label": "電話連絡"}, {"key": "waiting", "label": "待ち時間"}]}, {"key": "admin_edu", "label": "管理・教育", "group": "C 職員中心の活動", "color": "#475569", "subs": [{"key": "admin", "label": "管理業務"}, {"key": "training", "label": "研修"}, {"key": "student", "label": "学生指導"}]}, {"key": "personal", "label": "私用", "group": "D その他の活動", "color": "#64748b", "subs": [{"key": "break", "label": "食事・休憩"}, {"key": "toilet", "label": "私用（トイレ）"}]}], "wards": ["病棟A", "病棟B", "病棟C", "その他"], "shifts": ["日勤", "夜勤", "早出", "遅出"], "staff": [], "voice_ai": false, "stt": {"mode": "webspeech", "url": "", "field": "audio"}};
 (function(){
   const KEY="nwt.demo.punches";
   const load=()=>JSON.parse(localStorage.getItem(KEY)||"[]");
@@ -159,10 +281,11 @@ const DEMO_CONFIG = {"categories": [{"key": "direct", "label": "直接看護", "
   const orig=window.fetch.bind(window);
   window.fetch=async(url,opts={})=>{
     const u=typeof url==="string"?url:(url&&url.url)||"";
-    const body=opts.body?JSON.parse(opts.body):{};
+    const body=opts.body&&typeof opts.body==="string"?JSON.parse(opts.body):{};
     const J=o=>new Response(JSON.stringify(o),{status:200,headers:{"Content-Type":"application/json"}});
     const sp=()=>{try{return new URL(u,location.href).searchParams;}catch(e){return new URLSearchParams();}};
     if(u.includes("/api/config")) return J(DEMO_CONFIG);
+    if(u.includes("/api/voice/interpret")) return J({enabled:false, match:null});
     if(u.includes("/api/punch")){const a=load();a.push({staff_id:body.staff_id,category:body.category,subcategory:body.subcategory,ts:body.ts});save(a);return J({ok:true});}
     if(u.includes("/api/end")){const a=load();a.push({staff_id:body.staff_id,category:"END",ts:body.ts});save(a);return J({ok:true});}
     if(u.includes("/api/undo")){const sid=sp().get("staff_id");const a=load();for(let i=a.length-1;i>=0;i--){if(a[i].staff_id===sid){a.splice(i,1);break;}}save(a);return J({ok:true});}
@@ -175,8 +298,15 @@ const DEMO_CONFIG = {"categories": [{"key": "direct", "label": "直接看護", "
 <script>
 const LS = "nwt.session.v1";
 const OUTBOX = "nwt.outbox.v1";
+const OT = "nwt.overtime.v1";
 let CFG = null;
 let sess = JSON.parse(localStorage.getItem(LS) || "null"); // {staff,ward,shift}
+let overtime = JSON.parse(localStorage.getItem(OT) || "false"); // false=勤務時間内 / true=時間外
+const VW = "nwt.view.v1";
+let view = localStorage.getItem(VW) || "cat"; // "cat"=分類から / "list"=一覧から
+const DONESUM = "nwt.doneSummary.v1";
+// 業務終了サマリー（OKを押す画面）を出すか。OFFなら短いトーストだけでタップ不要。既定ON。
+let showDoneSummary = JSON.parse(localStorage.getItem(DONESUM) ?? "true");
 let pick = {staff:null, ward:null, shift:null};
 let current = null;      // {label, since}
 let timerHandle = null;
@@ -185,21 +315,62 @@ const $ = s => document.querySelector(s);
 function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1600); }
 
 async function boot(){
-  CFG = await (await fetch("/api/config")).json();
+  CFG = await (await fetch("./api/config")).json();
+  paintOt();
+  initVoice();
   if(sess && sess.staff){ showMain(); } else { showSetup(); }
   flushOutbox();
   setInterval(flushOutbox, 15000);
 }
 
+/* ---- 勤務時間内 / 勤務時間外 ---- */
+function paintOt(){
+  document.querySelectorAll("#otToggle button").forEach(b=>
+    b.classList.toggle("sel", (b.dataset.ot==="1")===overtime));
+}
+document.querySelectorAll("#otToggle button").forEach(b=>{
+  b.onclick=async ()=>{
+    const next = b.dataset.ot==="1";
+    if(next===overtime) return;
+    overtime=next; localStorage.setItem(OT, JSON.stringify(overtime)); paintOt();
+    // 実行中の業務があれば、切替時点で区間を割って同じ業務を新しい時間区分で打ち直す。
+    // こうしないと、残業に入った瞬間から後ろも「勤務時間内」のまま計上されてしまう。
+    if(current){
+      const ts=new Date().toISOString();
+      current={...current, since:ts}; renderNow();
+      await send("./api/punch", {staff_id:sess.staff, ward:sess.ward, shift:sess.shift,
+                                category:current.category, subcategory:current.subcategory, ts, overtime});
+    }
+    toast(overtime?"勤務時間外に切り替えました":"勤務時間内に切り替えました");
+  };
+});
+
 /* ---------------- セットアップ ---------------- */
 function showSetup(){
   $("#setup").classList.remove("hide"); $("#main").classList.add("hide");
   pick = Object.assign({staff:null,ward:null,shift:null}, sess||{});
-  renderChips("#staffChips", CFG.staff, "staff");
+  if(!pick.shift) pick.shift = CFG.shifts[0];   // 勤務帯は前回値（無ければ先頭）を既定に
+  $("#shiftField").classList.add("hide");        // 勤務帯は隠しておく
+  const si=$("#staffInput");
+  si.value = pick.staff || "";        // 前回の従業員番号を復元
   renderChips("#wardChips", CFG.wards, "ward");
   renderChips("#shiftChips", CFG.shifts, "shift");
   validate();
 }
+
+// 従業員番号は半角の英数字のみ。英字は大文字に寄せ、集計で N-01 と n-01 が
+// 別人に割れないようにする（集計は staff_id 文字列そのままで突き合わせるため）。
+function normStaff(v){ return (v||"").toUpperCase().replace(/[^0-9A-Z]/g, ""); }
+$("#staffInput").addEventListener("input", e=>{
+  const start=e.target.selectionStart;
+  const before=e.target.value;
+  const cleaned=normStaff(before);
+  e.target.value=cleaned;
+  // 消えた文字数だけキャレット位置を戻す（末尾入力なら影響なし）
+  if(cleaned!==before){ const d=before.length-cleaned.length; try{e.target.setSelectionRange(start-d,start-d);}catch(_){} }
+  pick.staff=cleaned;
+  validate();
+});
 function renderChips(sel, items, key){
   const box = $(sel); box.innerHTML="";
   items.forEach(v=>{
@@ -210,38 +381,115 @@ function renderChips(sel, items, key){
     box.appendChild(c);
   });
 }
-function validate(){ $("#startBtn").disabled = !(pick.staff&&pick.ward&&pick.shift); }
+function updateMore(){ const el=$("#moreToggle"); if(el) el.textContent = "▾ 勤務帯: " + (pick.shift||"-") + "（変更）"; }
+function validate(){ $("#startBtn").disabled = !(pick.staff && pick.staff.length>=1 && pick.ward); updateMore(); }
 $("#startBtn").onclick=()=>{
   sess={staff:pick.staff, ward:pick.ward, shift:pick.shift};
   localStorage.setItem(LS, JSON.stringify(sess));
   showMain();
 };
+$("#moreToggle").onclick=()=>{ $("#shiftField").classList.toggle("hide"); };
 
 /* ---------------- 記録画面 ---------------- */
 function showMain(){
   $("#setup").classList.add("hide"); $("#main").classList.remove("hide");
   $("#whoStaff").textContent=sess.staff; $("#whoWard").textContent=sess.ward; $("#whoShift").textContent=sess.shift;
-  renderGroups();
+  renderCats();
+  renderList();
+  applyView();
   refreshCurrent();
 }
 $("#changeBtn").onclick=(e)=>{ e.preventDefault(); showSetup(); };
 
-function renderGroups(){
-  const box=$("#groups"); box.innerHTML="";
+/* 1段目: 中分類カード。中身の小分類を並べて、開かなくても何が入っているか分かるようにする。 */
+function renderCats(){
+  const box=$("#catScreen"); box.innerHTML="";
+  let lastGroup=null;
   CFG.categories.forEach(cat=>{
-    const g=document.createElement("div"); g.className="group";
-    const h=document.createElement("div"); h.className="group-h";
-    h.innerHTML=`<span class="swatch" style="background:${cat.color}"></span>${cat.label}`;
-    g.appendChild(h);
+    // 大分類（A〜D）が変わったら、集計用紙と同じ見出しを挟む
+    if(cat.group && cat.group!==lastGroup){
+      const gh=document.createElement("div"); gh.className="maj-h"; gh.textContent=cat.group;
+      box.appendChild(gh); lastGroup=cat.group;
+    }
+    const b=document.createElement("button"); b.className="cat"; b.dataset.cat=cat.key;
+    b.style.setProperty("--c", cat.color);
+    b.innerHTML=`<div class="cat-top">
+        <span class="cat-name">${cat.label}<span class="cat-run" data-run="${cat.key}" style="display:none"></span></span>
+        <span class="cat-arrow">›</span>
+      </div>
+      <div class="cat-list">${cat.subs.map(s=>s.label).join("・")}</div>`;
+    b.onclick=()=>openCat(cat);
+    box.appendChild(b);
+  });
+  paintActive();
+}
+
+/* 2段目: 選んだ中分類の小分類だけを出す */
+function openCat(cat){
+  $("#subTitle").textContent=cat.label;
+  $("#subSwatch").style.background=cat.color;
+  const grid=$("#subGrid"); grid.innerHTML="";
+  cat.subs.forEach(sub=>{
+    const b=document.createElement("button"); b.className="btn"; b.dataset.cat=cat.key; b.dataset.sub=sub.key;
+    b.style.setProperty("--c",cat.color);
+    b.innerHTML = sub.label
+      + (sub.ai_tool?`<span class="ai">${sub.ai_tool}</span>`:"")
+      + (sub.note?`<span class="note">※${sub.note}</span>`:"");
+    b.onclick=()=>punch(cat, sub, b);
+    grid.appendChild(b);
+  });
+  $("#catScreen").classList.add("hide");
+  $("#subScreen").classList.remove("hide");
+  paintActive(); window.scrollTo(0,0);
+}
+
+function showCats(){
+  $("#subScreen").classList.add("hide");
+  $("#catScreen").classList.remove("hide");
+  paintActive(); window.scrollTo(0,0);
+}
+$("#backBtn").onclick=showCats;
+
+/* ---- 表示切替（分類から / 一覧から）---- */
+function paintVw(){ document.querySelectorAll("#viewToggle button").forEach(b=>b.classList.toggle("sel", b.dataset.vw===view)); }
+function applyView(){
+  paintVw();
+  if(view==="list"){
+    $("#catScreen").classList.add("hide"); $("#subScreen").classList.add("hide");
+    $("#listScreen").classList.remove("hide");
+  }else{
+    $("#listScreen").classList.add("hide"); $("#subScreen").classList.add("hide");
+    $("#catScreen").classList.remove("hide");
+  }
+  paintActive();
+}
+document.querySelectorAll("#viewToggle button").forEach(b=>{
+  b.onclick=()=>{ view=b.dataset.vw; localStorage.setItem(VW, view); applyView(); window.scrollTo(0,0); };
+});
+
+/* 一覧ビュー: 全小分類を 大分類→中分類 ごとに並べる */
+function renderList(){
+  const box=$("#listScreen"); box.innerHTML="";
+  let lastGroup=null;
+  CFG.categories.forEach(cat=>{
+    if(cat.group && cat.group!==lastGroup){
+      const gh=document.createElement("div"); gh.className="maj-h"; gh.textContent=cat.group;
+      box.appendChild(gh); lastGroup=cat.group;
+    }
+    const mh=document.createElement("div"); mh.className="list-mid";
+    mh.innerHTML=`<span class="sw" style="background:${cat.color}"></span>${cat.label}`;
+    box.appendChild(mh);
     const grid=document.createElement("div"); grid.className="grid";
     cat.subs.forEach(sub=>{
       const b=document.createElement("button"); b.className="btn"; b.dataset.cat=cat.key; b.dataset.sub=sub.key;
       b.style.setProperty("--c",cat.color);
-      b.innerHTML = sub.label + (sub.ai_tool?`<span class="ai">${sub.ai_tool}</span>`:"");
+      b.innerHTML = sub.label
+        + (sub.ai_tool?`<span class="ai">${sub.ai_tool}</span>`:"")
+        + (sub.note?`<span class="note">※${sub.note}</span>`:"");
       b.onclick=()=>punch(cat, sub, b);
       grid.appendChild(b);
     });
-    g.appendChild(grid); box.appendChild(g);
+    box.appendChild(grid);
   });
   paintActive();
 }
@@ -252,26 +500,66 @@ function paintActive(){
     b.classList.toggle("on", !!on);
     b.style.background = on ? getColor(b.dataset.cat) : "";
   });
+  // 実行中の業務がある中分類カードを塗り、何を記録中かカードにも出す
+  document.querySelectorAll(".cat").forEach(b=>{
+    b.classList.toggle("on", !!(current && b.dataset.cat===current.category));
+  });
+  document.querySelectorAll("[data-run]").forEach(el=>{
+    const on = current && el.dataset.run===current.category;
+    el.style.display = on ? "inline-block" : "none";
+    if(on) el.textContent = "記録中 " + current.label;
+  });
 }
 function getColor(catKey){ const c=CFG.categories.find(x=>x.key===catKey); return c?c.color:"#0f766e"; }
 
 async function punch(cat, sub, btn){
+  // 実行中の業務と同じボタンをもう一度押したら、その業務を終了して待機に戻す。
+  // 別の業務ボタンなら従来どおり打刻して切り替える（前の区間はそこで確定する）。
+  if(current && current.category===cat.key && current.subcategory===sub.key){
+    await endCurrent(`${sub.label} を終了しました`);
+    return;
+  }
   const ts=new Date().toISOString();
-  const body={staff_id:sess.staff, ward:sess.ward, shift:sess.shift, category:cat.key, subcategory:sub.key, ts};
+  const body={staff_id:sess.staff, ward:sess.ward, shift:sess.shift, category:cat.key, subcategory:sub.key, ts, overtime};
   current={category:cat.key, subcategory:sub.key, label:sub.label, since:ts};
   paintActive(); renderNow();
-  await send("/api/punch", body);
+  // 打刻しても画面は戻さない。押した業務が緑のまま残り、上にタイマーが出る。
+  await send("./api/punch", body);
 }
 
-$("#endBtn").onclick=async ()=>{
+/* ENDマーカーを打って待機状態へ戻す。最終区間はここで確定する。 */
+async function endCurrent(msg){
   const ts=new Date().toISOString();
-  await send("/api/end", {staff_id:sess.staff, ward:sess.ward, shift:sess.shift, category:"END", ts});
-  current=null; paintActive(); renderNow(); toast("記録を終了しました");
-};
+  const done = current ? {label:current.label, since:current.since, until:ts} : null;
+  current=null; paintActive(); renderNow();
+  await send("./api/end", {staff_id:sess.staff, ward:sess.ward, shift:sess.shift, category:"END", ts, overtime});
+  // 実行中の業務があったとき: サマリーON なら確認画面、OFF なら短いトーストだけ（タップ不要）。
+  // 何も実行していなければ出すものが無いのでトーストだけ。
+  if(done){ if(showDoneSummary) showDone(done); else toast(`${done.label} 終了（${durText(done.since, done.until)}）`); }
+  else toast(msg);
+}
+
+$("#endBtn").onclick=async ()=>{ await endCurrent("記録を終了しました"); };
+
+/* ---- 業務終了サマリー ---- */
+function showDone(d){
+  $("#doneLabel").textContent = d.label;
+  $("#doneRange").textContent = `${fmt(d.since)} 〜 ${fmt(d.until)}`;
+  $("#doneDur").textContent = durText(d.since, d.until);
+  $("#doneOverlay").classList.remove("hide");
+}
+function durText(since, until){
+  const sec=Math.max(0, Math.round((new Date(until)-new Date(since))/1000));
+  const h=Math.floor(sec/3600), m=Math.floor((sec%3600)/60), s=sec%60;
+  if(h>0) return `${h}時間${m}分${s}秒`;
+  if(m>0) return `${m}分${s}秒`;
+  return `${s}秒`;
+}
+$("#doneOk").onclick=()=>$("#doneOverlay").classList.add("hide");
 
 $("#undoBtn").onclick=async ()=>{
   try{
-    const r=await fetch("/api/undo?staff_id="+encodeURIComponent(sess.staff), {method:"POST"});
+    const r=await fetch("./api/undo?staff_id="+encodeURIComponent(sess.staff), {method:"POST"});
     if(!r.ok) throw 0;
     toast("直前の打刻を取り消しました");
     await refreshCurrent();
@@ -280,7 +568,7 @@ $("#undoBtn").onclick=async ()=>{
 
 async function refreshCurrent(){
   try{
-    const r=await fetch("/api/current?staff_id="+encodeURIComponent(sess.staff));
+    const r=await fetch("./api/current?staff_id="+encodeURIComponent(sess.staff));
     const d=await r.json();
     current = d.active ? {category:d.category, subcategory:d.subcategory, label:d.label, since:d.since} : null;
   }catch(e){ /* オフライン時は直近のローカル状態を維持 */ }
@@ -292,16 +580,22 @@ function renderNow(){
   const body=$("#nowBody");
   if(!current){ body.innerHTML=`<span class="now-idle">記録待機中 — 業務ボタンを押してください</span>`; stopTimer(); return; }
   body.innerHTML=`<span class="now-label"><span class="dot"></span>${current.label}</span>
-                  <span class="now-timer" id="elapsed">0分</span>
-                  <span class="now-since">開始 ${fmt(current.since)}</span>`;
+                  <span class="now-timer" id="elapsed">0:00</span>
+                  <span class="now-since">開始 ${fmt(current.since)}</span>
+                  <button class="now-end" id="nowEnd">この業務を終了</button>`;
+  // 2段階になり、同じボタンまで戻るのに手数がかかるので、ここから1タップで終われるようにする
+  $("#nowEnd").onclick=()=>endCurrent(`${current ? current.label : ""} を終了しました`);
   startTimer();
 }
-function startTimer(){ stopTimer(); tick(); timerHandle=setInterval(tick,10000); }
+function startTimer(){ stopTimer(); tick(); timerHandle=setInterval(tick,1000); }
 function stopTimer(){ if(timerHandle){clearInterval(timerHandle); timerHandle=null;} }
 function tick(){
   const el=$("#elapsed"); if(!el||!current) return;
-  const min=Math.max(0, Math.round((Date.now()-new Date(current.since))/60000));
-  el.textContent = min<60 ? `${min}分` : `${Math.floor(min/60)}時間${min%60}分`;
+  // since から都度計算する。タブが非表示でsetIntervalが間引かれても表示は狂わない。
+  const sec=Math.max(0, Math.floor((Date.now()-new Date(current.since))/1000));
+  const h=Math.floor(sec/3600), m=Math.floor((sec%3600)/60), s=sec%60;
+  const pad=n=>String(n).padStart(2,"0");
+  el.textContent = h>0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
 }
 function fmt(iso){ const d=new Date(iso); return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
 
@@ -332,6 +626,273 @@ async function flushOutbox(){
 function updateQueue(){
   const ob=JSON.parse(localStorage.getItem(OUTBOX)||"[]");
   $("#queueInfo").textContent = ob.length ? `未送信 ${ob.length}件（自動再送）` : "";
+}
+
+/* ====================== 音声で打刻 ======================
+   端末内の「読み・別名＋あいまい一致」で即判定し、迷ったときだけ
+   /api/voice/interpret（AI解釈）に投げる。確定前にビープ＋読み上げで確認する。 */
+let vRec=null, vOn=false, vAudio=null;
+// whisper（オンプレSTT）用の録音・区切り状態
+let vStream=null, vRecorder=null, vChunks=[], vAnalyser=null, vVadRAF=null, vSpeaking=false, vSilenceStart=0, vHadSpeech=false;
+
+// 区分キー → 読み・別名（必要に応じて増やせる。網羅しなくてもAIが拾う）
+const VSYN = {
+  hygiene:["せいけつ","清拭","体を拭","からだをふく","陰洗","部分浴"],
+  excretion:["はいせつ","おむつ","トイレ介助","ポータブル","導尿"],
+  meal:["しょくじ","食事介助","配膳","下膳","食介"],
+  obs:["バイタル","検温","観察","測定"],
+  comm:["会話","傾聴","説明"],
+  proc:["処置","ガーゼ交換","創処置"],
+  med_oral:["内服","与薬","服薬"],
+  med_inj:["注射","点滴","静注","筋注","ちゅうしゃ"],
+  record:["記録","看護記録","カルテ入力","soap","ソープ"],
+  handover:["申し送り","もうしおくり","引き継ぎ","ひきつぎ"],
+  conf:["カンファ","かんふぁ","カンファレンス"],
+  nursecall:["ナースコール","コール対応"],
+  phone:["電話","でんわ"],
+  break:["休憩","きゅうけい","昼休み"],
+  toilet:["トイレ"],
+};
+
+let VIDX=[];
+function vNorm(s){ return (s||"").replace(/[\s　、。・,./（）()「」\-]/g,"").toLowerCase(); }
+function buildVoiceIndex(){
+  VIDX=[];
+  (CFG.categories||[]).forEach(c=>c.subs.forEach(s=>{
+    const terms=new Set();
+    const add=x=>{ const n=vNorm(x); if(n.length>=2) terms.add(n); };
+    add(s.label);
+    s.label.split(/[・（）()／\/]/).forEach(add);   // 「安全・安楽」→安全/安楽 等
+    (VSYN[s.key]||[]).forEach(add);
+    VIDX.push({cat:c, sub:s, terms:[...terms]});
+  }));
+}
+
+// 端末内一致。確信が持てないときは conf:false を返し、AIに委ねる
+function localMatch(text){
+  const t=vNorm(text);
+  if(!t) return {type:"none"};
+  if(/(終了|おわり|終わり|記録終了|ストップ|すとっぷ|やめ)/.test(text)) return {type:"end"};
+  if(/(取り?消|とりけし|訂正|キャンセル|やり直)/.test(text)) return {type:"undo"};
+  let best=null, bestLen=0, tie=false;
+  for(const e of VIDX){
+    for(const term of e.terms){
+      let ok = (t===term) || t.includes(term) || (term.includes(t) && t.length>=2);
+      if(!ok) continue;
+      if(term.length>bestLen){ best=e; bestLen=term.length; tie=false; }
+      else if(term.length===bestLen && best && e.sub.key!==best.sub.key){ tie=true; }
+    }
+  }
+  if(best && !tie) return {type:"task", cat:best.cat, sub:best.sub};
+  return {type:"none"};   // 曖昧 or 未一致 → AIへ
+}
+
+async function aiInterpret(text){
+  if(!CFG.voice_ai) return {type:"none"};
+  try{
+    const r=await fetch("./api/voice/interpret",{method:"POST",
+      headers:{"Content-Type":"application/json"}, body:JSON.stringify({text})});
+    const d=await r.json();
+    if(!d || !d.match) return {type:"none"};
+    if(d.match.command) return {type:d.match.command};
+    const cat=(CFG.categories||[]).find(c=>c.key===d.match.cat);
+    const sub=cat&&cat.subs.find(s=>s.key===d.match.sub);
+    return (cat&&sub) ? {type:"task", cat, sub} : {type:"none"};
+  }catch(e){ return {type:"none"}; }
+}
+
+async function handleUtterance(text){
+  let m = localMatch(text);
+  if(m.type==="none" && CFG.voice_ai){ setStatus("解釈中… 「"+text+"」", true); m = await aiInterpret(text); }
+  if(m.type==="none"){ setStatus("聞き取り: 「"+text+"」（該当なし）"); return; }  // 連続聞き取り中は静かに無視
+  await runCommand(m);
+}
+
+// 即時モード：言った瞬間に実行し、音＋読み上げで返す。訂正は「取り消して」/ボタン。
+async function runCommand(m){
+  if(m.type==="task"){
+    // 既に記録中の同じ業務なら無視（連続聞き取りでの重複発話で誤って終了させない。
+    // 終了は「終わりました」等のENDコマンドだけで行う）
+    if(current && current.category===m.cat.key && current.subcategory===m.sub.key){
+      setStatus("記録中: "+m.sub.label, true); return;
+    }
+    startBeep();                                  // ピピッ ＝ 録り始めた
+    await punch(m.cat, m.sub);
+    speak(`${m.sub.label}、記録します`);
+    setStatus("記録中: "+m.sub.label, true);
+  }else if(m.type==="end"){
+    endBeep();                                    // ピー ＝ 終わった
+    const doneLabel = current ? current.label : "";   // 終了する業務名を、消える前に控える
+    await endCurrent("記録を終了しました");
+    speak(doneLabel ? `${doneLabel}、終わりました` : "終わりました");
+    setStatus(doneLabel ? `${doneLabel} 終わりました` : "記録を終了しました", true);
+  }else if(m.type==="undo"){
+    endBeep();
+    $("#undoBtn").click();
+    speak("取り消しました");
+    setStatus("取り消しました", true);
+  }
+}
+function startBeep(){ beep([880,1320],0.07); }      // 上がる2音＝開始
+function endBeep(){ beep([600],0.32); }             // 長めの1音＝終了
+
+/* ---- 音のフィードバック（端末内・外部通信なし）---- */
+function beep(freqs, dur){
+  try{
+    vAudio = vAudio || new (window.AudioContext||window.webkitAudioContext)();
+    if(vAudio.state==="suspended") vAudio.resume();
+    let t=vAudio.currentTime;
+    freqs.forEach(f=>{
+      const o=vAudio.createOscillator(), g=vAudio.createGain();
+      o.type="sine"; o.frequency.value=f; o.connect(g); g.connect(vAudio.destination);
+      g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.22,t+0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+      o.start(t); o.stop(t+dur); t+=dur+0.05;
+    });
+  }catch(e){}
+}
+function speak(text){
+  try{
+    if(!("speechSynthesis" in window)) return;
+    speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(text); u.lang="ja-JP"; u.rate=1.05;
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+function setStatus(msg, heard){
+  const el=$("#voiceStatus"); if(!el) return;
+  el.textContent = msg||""; el.classList.toggle("heard", !!heard);
+}
+
+/* ---- 認識のライフサイクル ---- */
+function speechAvailable(){ return ("webkitSpeechRecognition" in window) || ("SpeechRecognition" in window); }
+function initVoice(){
+  buildVoiceIndex();
+  const b=$("#voiceBtn"); if(b) b.onclick=toggleVoice;
+  const dt=$("#doneToggle");
+  if(dt){
+    dt.checked = showDoneSummary;
+    dt.onchange = ()=>{ showDoneSummary = dt.checked; localStorage.setItem(DONESUM, JSON.stringify(showDoneSummary));
+      toast(showDoneSummary ? "終了サマリーを表示します" : "終了サマリーを出しません"); };
+  }
+}
+function sttMode(){ return (CFG.stt && CFG.stt.mode) || "webspeech"; }
+function toggleVoice(){
+  if(vOn){ stopVoice(); return; }
+  if(!window.isSecureContext){ toast("音声入力にはHTTPS接続が必要です"); return; }
+  if(sttMode()==="whisper"){ startWhisper(); return; }   // オンプレ録音→文字起こし
+  if(!speechAvailable()){ toast("この端末は音声認識に未対応です"); return; }
+  startVoice();                                          // ブラウザ音声認識
+}
+function startVoice(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  vRec=new SR(); vRec.lang="ja-JP"; vRec.continuous=true; vRec.interimResults=true;
+  vRec.onresult=onVoiceResult;
+  vRec.onerror=e=>{
+    if(e.error==="not-allowed"||e.error==="service-not-allowed"){ toast("マイクの許可が必要です"); stopVoice(); }
+    else if(e.error==="network"){ toast("音声認識に接続できません"); }
+  };
+  vRec.onend=()=>{ if(vOn){ try{ vRec.start(); }catch(e){} } };
+  try{ vRec.start(); }catch(e){}
+  vOn=true; $("#voiceBtn").classList.add("on"); $("#voiceBtnLabel").textContent="聞き取り中… 停止";
+  setStatus("お話しください（例:「清潔」「記録終了」）");
+  beep([660],0.05); speak("");   // ユーザー操作起点で音声出力を解錠
+}
+function stopVoice(){
+  const whisper = sttMode()==="whisper";
+  vOn=false;
+  if(whisper) stopWhisper();
+  else if(vRec){ try{ vRec.stop(); }catch(e){} vRec=null; }
+  const b=$("#voiceBtn"); if(b){ b.classList.remove("on"); $("#voiceBtnLabel").textContent="音声で打刻"; }
+  setStatus("");
+}
+
+/* ---- オンプレSTT（whisper等）: マイク録音→無音で区切り→/transcribeにPOST→text ---- */
+async function startWhisper(){
+  try{
+    vStream = await navigator.mediaDevices.getUserMedia({audio:{channelCount:1, echoCancellation:true, noiseSuppression:true}});
+  }catch(e){ toast("マイクの許可が必要です"); return; }
+  vOn=true;
+  $("#voiceBtn").classList.add("on"); $("#voiceBtnLabel").textContent="聞き取り中… 停止";
+  setStatus("お話しください（例:「清潔」「終わりました」）");
+  beep([660],0.05); speak("");                 // ユーザー操作起点で音声出力を解錠
+  vAudio = vAudio || new (window.AudioContext||window.webkitAudioContext)();
+  if(vAudio.state==="suspended") vAudio.resume();
+  const srcNode = vAudio.createMediaStreamSource(vStream);
+  vAnalyser = vAudio.createAnalyser(); vAnalyser.fftSize = 2048; srcNode.connect(vAnalyser);
+  startSegment();
+  monitorVad();
+}
+function pickMime(){
+  const cands=["audio/webm;codecs=opus","audio/webm","audio/ogg;codecs=opus","audio/mp4"];
+  for(const m of cands){ if(window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)) return {mimeType:m}; }
+  return {};
+}
+function startSegment(){
+  vChunks=[]; vHadSpeech=false; vSpeaking=false; vSilenceStart=0;
+  try{ vRecorder = new MediaRecorder(vStream, pickMime()); }
+  catch(e){ try{ vRecorder = new MediaRecorder(vStream); }catch(e2){ toast("録音に未対応の端末です"); stopWhisper(); return; } }
+  vRecorder.ondataavailable = e=>{ if(e.data && e.data.size) vChunks.push(e.data); };
+  vRecorder.onstop = onSegmentStop;
+  vRecorder.start();
+}
+function monitorVad(){
+  if(!vOn || !vAnalyser){ return; }
+  const buf=new Uint8Array(vAnalyser.fftSize);
+  vAnalyser.getByteTimeDomainData(buf);
+  let sum=0; for(let i=0;i<buf.length;i++){ const v=(buf[i]-128)/128; sum+=v*v; }
+  const rms=Math.sqrt(sum/buf.length);
+  const now=performance.now();
+  const SPEAK=0.045, SIL=0.02;                 // 話声/無音のしきい値（実機で要調整）
+  if(rms>SPEAK){ vSpeaking=true; vHadSpeech=true; vSilenceStart=0; }
+  else if(rms<SIL && vSpeaking){
+    if(!vSilenceStart) vSilenceStart=now;
+    else if(now - vSilenceStart > 700 && vHadSpeech){ cutSegment(); }  // 発話後0.7秒無音で区切り
+  }
+  vVadRAF = requestAnimationFrame(monitorVad);
+}
+function cutSegment(){
+  vSpeaking=false; vSilenceStart=0;
+  if(vRecorder && vRecorder.state==="recording"){ vRecorder.stop(); }   // → onSegmentStop
+}
+async function onSegmentStop(){
+  const chunks=vChunks, had=vHadSpeech;
+  if(vOn) startSegment();                       // 次の発話へすぐ移る
+  if(!had || !chunks.length) return;
+  const blob=new Blob(chunks, {type:(chunks[0] && chunks[0].type) || "audio/webm"});
+  if(blob.size < 1400) return;                  // 短すぎる断片（ノイズ）は無視
+  await sttSend(blob);
+}
+async function sttSend(blob){
+  const s=CFG.stt||{};
+  const fd=new FormData();
+  fd.append(s.field||"audio", blob, "clip.webm");
+  try{
+    setStatus("認識中…", true);
+    const r=await fetch(s.url, {method:"POST", body:fd});
+    if(!r.ok) throw 0;
+    const d=await r.json();
+    const text=((d.text||d.transcript||"")+"").trim();
+    if(text) handleUtterance(text); else setStatus("（聞き取れませんでした）");
+  }catch(e){ setStatus("認識サーバに接続できません"); }
+}
+function stopWhisper(){
+  vOn=false;
+  if(vVadRAF){ cancelAnimationFrame(vVadRAF); vVadRAF=null; }
+  if(vRecorder && vRecorder.state!=="inactive"){ try{ vRecorder.onstop=null; vRecorder.stop(); }catch(e){} }
+  vRecorder=null; vAnalyser=null;
+  if(vStream){ vStream.getTracks().forEach(t=>t.stop()); vStream=null; }
+}
+function onVoiceResult(ev){
+  let interim="", finalText="";
+  for(let i=ev.resultIndex;i<ev.results.length;i++){
+    const r=ev.results[i];
+    if(r.isFinal) finalText+=r[0].transcript; else interim+=r[0].transcript;
+  }
+  if(interim && !finalText) setStatus("… "+interim, true);
+  if(!finalText) return;
+  const t=finalText.trim(); if(!t) return;
+  handleUtterance(t);
 }
 
 boot();

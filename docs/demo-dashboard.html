@@ -82,6 +82,8 @@
     <div class="meta">
       <div><b id="mSessions">–</b>のべ勤務数</div>
       <div><b id="mTotal">–</b>総記録時間(時)</div>
+      <div><b id="mIn">–</b>勤務時間内(分)</div>
+      <div><b id="mOt">–</b>勤務時間外(分)</div>
       <div><b id="mIntervals">–</b>記録区間数</div>
     </div>
     <p class="sub" style="margin:6px 0 0">「1シフトあたり」= 総時間 ÷ のべ勤務数。同一値を導入後にも算出すれば差分がAI効果になります。</p>
@@ -93,15 +95,29 @@
   </div>
 
   <div class="card">
-    <h2>大区分別 時間配分</h2>
+    <h2>中分類別 時間配分</h2>
     <div id="catBars"></div>
   </div>
 
   <div class="card">
-    <h2>小区分別 明細</h2>
+    <h2>中分類別 集計（集計用紙の合計行）</h2>
     <table>
       <thead><tr>
-        <th>大区分</th><th>小区分</th>
+        <th>大分類</th><th>中分類</th>
+        <th class="num">勤務時間内(分)</th><th class="num">勤務時間外(分)</th><th class="num">合計(分)</th>
+      </tr></thead>
+      <tbody id="catRows"></tbody>
+      <tfoot id="catFoot"></tfoot>
+    </table>
+    <div id="catEmpty" class="empty">データがありません</div>
+  </div>
+
+  <div class="card">
+    <h2>小分類別 明細</h2>
+    <table>
+      <thead><tr>
+        <th>中分類</th><th>小分類</th>
+        <th class="num">時間内(分)</th><th class="num">時間外(分)</th>
         <th class="num">合計(分)</th><th class="num">1シフト(分)</th>
         <th class="num">回数</th><th class="num">割合</th>
       </tr></thead>
@@ -113,8 +129,9 @@
 
 
 <script>
-const DEMO_SUMMARY = {"total_minutes": 544.0, "n_sessions": 3, "n_intervals": 25, "categories": [{"category": "record", "cat_label": "記録", "minutes": 202.0, "pct": 37.1}, {"category": "direct", "cat_label": "直接看護", "minutes": 132.0, "pct": 24.3}, {"category": "share", "cat_label": "情報共有", "minutes": 85.0, "pct": 15.6}, {"category": "off", "cat_label": "休憩・待機", "minutes": 85.0, "pct": 15.6}, {"category": "indirect", "cat_label": "間接看護", "minutes": 30.0, "pct": 5.5}, {"category": "misc", "cat_label": "移動・教育・その他", "minutes": 10.0, "pct": 1.8}], "subcategories": [{"category": "record", "cat_label": "記録", "subcategory": "soap", "sub_label": "看護記録・SOAP入力", "ai_tool": "medai SOAP Voice", "minutes": 100.0, "count": 4, "pct": 18.4, "min_per_session": 33.3}, {"category": "off", "cat_label": "休憩・待機", "subcategory": "break", "sub_label": "休憩", "ai_tool": "", "minutes": 85.0, "count": 2, "pct": 15.6, "min_per_session": 28.3}, {"category": "direct", "cat_label": "直接看護", "subcategory": "obs", "sub_label": "観察・バイタル測定", "ai_tool": "", "minutes": 68.0, "count": 3, "pct": 12.5, "min_per_session": 22.7}, {"category": "record", "cat_label": "記録", "subcategory": "summary", "sub_label": "退院時サマリー作成", "ai_tool": "SummyAI", "minutes": 68.0, "count": 3, "pct": 12.5, "min_per_session": 22.7}, {"category": "share", "cat_label": "情報共有", "subcategory": "conf", "sub_label": "カンファレンス・会議", "ai_tool": "議事録自動生成", "minutes": 62.0, "count": 2, "pct": 11.4, "min_per_session": 20.7}, {"category": "direct", "cat_label": "直接看護", "subcategory": "care", "sub_label": "処置・与薬", "ai_tool": "", "minutes": 30.0, "count": 2, "pct": 5.5, "min_per_session": 10.0}, {"category": "direct", "cat_label": "直接看護", "subcategory": "adl", "sub_label": "清潔・排泄ケア", "ai_tool": "", "minutes": 22.0, "count": 1, "pct": 4.0, "min_per_session": 7.3}, {"category": "record", "cat_label": "記録", "subcategory": "chart", "sub_label": "温度板・観察記録入力", "ai_tool": "", "minutes": 20.0, "count": 1, "pct": 3.7, "min_per_session": 6.7}, {"category": "indirect", "cat_label": "間接看護", "subcategory": "prep", "sub_label": "物品準備・片付け", "ai_tool": "", "minutes": 18.0, "count": 1, "pct": 3.3, "min_per_session": 6.0}, {"category": "share", "cat_label": "情報共有", "subcategory": "handover", "sub_label": "申し送り", "ai_tool": "", "minutes": 15.0, "count": 1, "pct": 2.8, "min_per_session": 5.0}, {"category": "record", "cat_label": "記録", "subcategory": "doc", "sub_label": "その他書類・記録", "ai_tool": "", "minutes": 14.0, "count": 1, "pct": 2.6, "min_per_session": 4.7}, {"category": "indirect", "cat_label": "間接看護", "subcategory": "order", "sub_label": "指示受け・確認", "ai_tool": "", "minutes": 12.0, "count": 1, "pct": 2.2, "min_per_session": 4.0}, {"category": "direct", "cat_label": "直接看護", "subcategory": "explain", "sub_label": "患者対応・説明", "ai_tool": "", "minutes": 12.0, "count": 1, "pct": 2.2, "min_per_session": 4.0}, {"category": "misc", "cat_label": "移動・教育・その他", "subcategory": "walk", "sub_label": "移動（病棟内・院内）", "ai_tool": "", "minutes": 10.0, "count": 1, "pct": 1.8, "min_per_session": 3.3}, {"category": "share", "cat_label": "情報共有", "subcategory": "phone", "sub_label": "電話・連絡対応", "ai_tool": "", "minutes": 8.0, "count": 1, "pct": 1.5, "min_per_session": 2.7}], "ai_baseline": [{"category": "record", "cat_label": "記録", "subcategory": "soap", "sub_label": "看護記録・SOAP入力", "ai_tool": "medai SOAP Voice", "minutes": 100.0, "count": 4, "pct": 18.4, "min_per_session": 33.3}, {"category": "record", "cat_label": "記録", "subcategory": "summary", "sub_label": "退院時サマリー作成", "ai_tool": "SummyAI", "minutes": 68.0, "count": 3, "pct": 12.5, "min_per_session": 22.7}, {"category": "share", "cat_label": "情報共有", "subcategory": "conf", "sub_label": "カンファレンス・会議", "ai_tool": "議事録自動生成", "minutes": 62.0, "count": 2, "pct": 11.4, "min_per_session": 20.7}]};
-const DEMO_CONFIG = {"categories": [{"key": "direct", "label": "直接看護", "color": "#0f766e", "subs": [{"key": "obs", "label": "観察・バイタル測定"}, {"key": "care", "label": "処置・与薬"}, {"key": "adl", "label": "清潔・排泄ケア"}, {"key": "move", "label": "移乗・移動介助"}, {"key": "explain", "label": "患者対応・説明"}]}, {"key": "indirect", "label": "間接看護", "color": "#2563eb", "subs": [{"key": "order", "label": "指示受け・確認"}, {"key": "prep", "label": "物品準備・片付け"}, {"key": "env", "label": "環境整備"}, {"key": "coord", "label": "連絡・調整"}]}, {"key": "record", "label": "記録", "color": "#b45309", "subs": [{"key": "soap", "label": "看護記録・SOAP入力", "ai_tool": "medai SOAP Voice"}, {"key": "summary", "label": "退院時サマリー作成", "ai_tool": "SummyAI"}, {"key": "chart", "label": "温度板・観察記録入力"}, {"key": "doc", "label": "その他書類・記録"}]}, {"key": "share", "label": "情報共有", "color": "#7c3aed", "subs": [{"key": "handover", "label": "申し送り"}, {"key": "conf", "label": "カンファレンス・会議", "ai_tool": "議事録自動生成"}, {"key": "phone", "label": "電話・連絡対応"}]}, {"key": "misc", "label": "移動・教育・その他", "color": "#475569", "subs": [{"key": "walk", "label": "移動（病棟内・院内）"}, {"key": "edu", "label": "指導・教育・委員会"}, {"key": "other", "label": "その他業務"}]}, {"key": "off", "label": "休憩・待機", "color": "#64748b", "subs": [{"key": "break", "label": "休憩"}, {"key": "standby", "label": "待機"}]}], "wards": ["病棟A", "病棟B", "病棟C", "その他"], "shifts": ["日勤", "夜勤", "早出", "遅出"], "staff": ["N-01", "N-02", "N-03", "N-04", "N-05", "N-06", "N-07", "N-08", "N-09", "N-10", "N-11", "N-12", "N-13", "N-14", "N-15", "N-16", "N-17", "N-18", "N-19", "N-20"]};
+/* ===== DEMO MODE: サンプル集計を埋め込み、fetch を差し替える ===== */
+const DEMO_CONFIG = {"categories": [{"key": "direct1", "label": "直接看護Ⅰ", "group": "A 患者中心の看護活動", "color": "#0f766e", "subs": [{"key": "hygiene", "label": "清潔"}, {"key": "excretion", "label": "排泄"}, {"key": "meal", "label": "食事"}, {"key": "safety", "label": "安全・安楽"}, {"key": "obs", "label": "測定・観察"}, {"key": "comm", "label": "コミュニケーション"}, {"key": "roomenv", "label": "病室環境整備"}]}, {"key": "direct2", "label": "直接看護Ⅱ", "group": "A 患者中心の看護活動", "color": "#0d9488", "subs": [{"key": "proc", "label": "看護処置", "note": "看護師独自又は医師の指示により看護師が実施"}, {"key": "proc_assist", "label": "処置の介助", "note": "医師と共に実施"}, {"key": "med_oral", "label": "与薬（内服・外用・他）"}, {"key": "med_inj", "label": "与薬（注射）"}, {"key": "round", "label": "回診の介助"}, {"key": "exam", "label": "検査"}, {"key": "patrol", "label": "病室巡視"}, {"key": "me_prep", "label": "MEの使用準備"}]}, {"key": "direct3", "label": "直接看護Ⅲ", "group": "A 患者中心の看護活動", "color": "#14b8a6", "subs": [{"key": "guidance", "label": "患者指導"}, {"key": "transport", "label": "患者搬送"}, {"key": "errand", "label": "患者の用事"}, {"key": "transfer", "label": "転室・転棟"}]}, {"key": "indirect", "label": "間接看護", "group": "A 患者中心の看護活動", "color": "#b45309", "subs": [{"key": "record", "label": "看護記録", "ai_tool": "medai SOAP Voice"}, {"key": "careplan", "label": "看護計画"}, {"key": "summary", "label": "サマリー", "ai_tool": "SummyAI"}, {"key": "fee_record", "label": "診療報酬に係る記録", "note": "入退院診療計画書・褥瘡・SGA等、但し看護必要度は含まない"}, {"key": "handover", "label": "引継ぎ"}, {"key": "conf", "label": "カンファレンス", "ai_tool": "議事録自動生成"}, {"key": "order", "label": "指示受け・報告"}, {"key": "info", "label": "情報収集"}]}, {"key": "supplies", "label": "物品管理", "group": "B 看護単位中心の活動", "color": "#2563eb", "subs": [{"key": "drug", "label": "薬品"}, {"key": "consumable", "label": "消耗品"}, {"key": "sterile", "label": "滅菌器材"}]}, {"key": "env", "label": "環境整備", "group": "B 看護単位中心の活動", "color": "#3b82f6", "subs": [{"key": "housekeeping", "label": "ハウスキーピング"}, {"key": "equipment", "label": "器材の整備"}, {"key": "wipecart", "label": "清拭車の準備"}]}, {"key": "clerical", "label": "事務", "group": "B 看護単位中心の活動", "color": "#6366f1", "subs": [{"key": "general", "label": "事務一般"}, {"key": "transport_other", "label": "搬送（患者以外）"}]}, {"key": "contact", "label": "連絡", "group": "B 看護単位中心の活動", "color": "#7c3aed", "subs": [{"key": "nursecall", "label": "ナースコール"}, {"key": "phone", "label": "電話連絡"}, {"key": "waiting", "label": "待ち時間"}]}, {"key": "admin_edu", "label": "管理・教育", "group": "C 職員中心の活動", "color": "#475569", "subs": [{"key": "admin", "label": "管理業務"}, {"key": "training", "label": "研修"}, {"key": "student", "label": "学生指導"}]}, {"key": "personal", "label": "私用", "group": "D その他の活動", "color": "#64748b", "subs": [{"key": "break", "label": "食事・休憩"}, {"key": "toilet", "label": "私用（トイレ）"}]}], "wards": ["病棟A", "病棟B", "病棟C", "その他"], "shifts": ["日勤", "夜勤", "早出", "遅出"], "staff": [], "voice_ai": false, "stt": {"mode": "webspeech", "url": "", "field": "audio"}};
+const DEMO_SUMMARY = {"total_minutes": 1456.0, "total_in_minutes": 1456.0, "total_ot_minutes": 0, "n_sessions": 3, "n_intervals": 81, "groups": [{"group": "A 患者中心の看護活動", "minutes": 1203.0, "in_minutes": 1203.0, "ot_minutes": 0.0, "pct": 82.6}, {"group": "B 看護単位中心の活動", "minutes": 88.0, "in_minutes": 88.0, "ot_minutes": 0.0, "pct": 6.0}, {"group": "C 職員中心の活動", "minutes": 42.0, "in_minutes": 42.0, "ot_minutes": 0.0, "pct": 2.9}, {"group": "D その他の活動", "minutes": 123.0, "in_minutes": 123.0, "ot_minutes": 0.0, "pct": 8.4}], "categories": [{"category": "direct1", "cat_label": "直接看護Ⅰ", "group": "A 患者中心の看護活動", "minutes": 480.0, "in_minutes": 480.0, "ot_minutes": 0.0, "pct": 33.0}, {"category": "direct2", "cat_label": "直接看護Ⅱ", "group": "A 患者中心の看護活動", "minutes": 261.0, "in_minutes": 261.0, "ot_minutes": 0.0, "pct": 17.9}, {"category": "direct3", "cat_label": "直接看護Ⅲ", "group": "A 患者中心の看護活動", "minutes": 45.0, "in_minutes": 45.0, "ot_minutes": 0.0, "pct": 3.1}, {"category": "indirect", "cat_label": "間接看護", "group": "A 患者中心の看護活動", "minutes": 417.0, "in_minutes": 417.0, "ot_minutes": 0.0, "pct": 28.6}, {"category": "supplies", "cat_label": "物品管理", "group": "B 看護単位中心の活動", "minutes": 30.0, "in_minutes": 30.0, "ot_minutes": 0.0, "pct": 2.1}, {"category": "env", "cat_label": "環境整備", "group": "B 看護単位中心の活動", "minutes": 14.0, "in_minutes": 14.0, "ot_minutes": 0.0, "pct": 1.0}, {"category": "clerical", "cat_label": "事務", "group": "B 看護単位中心の活動", "minutes": 18.0, "in_minutes": 18.0, "ot_minutes": 0.0, "pct": 1.2}, {"category": "contact", "cat_label": "連絡", "group": "B 看護単位中心の活動", "minutes": 26.0, "in_minutes": 26.0, "ot_minutes": 0.0, "pct": 1.8}, {"category": "admin_edu", "cat_label": "管理・教育", "group": "C 職員中心の活動", "minutes": 42.0, "in_minutes": 42.0, "ot_minutes": 0.0, "pct": 2.9}, {"category": "personal", "cat_label": "私用", "group": "D その他の活動", "minutes": 123.0, "in_minutes": 123.0, "ot_minutes": 0.0, "pct": 8.4}], "subcategories": [{"category": "indirect", "cat_label": "間接看護", "group": "A 患者中心の看護活動", "subcategory": "record", "sub_label": "看護記録", "ai_tool": "medai SOAP Voice", "minutes": 141.0, "count": 6, "in_minutes": 141.0, "ot_minutes": 0.0, "pct": 9.7, "min_per_session": 47.0}, {"category": "direct1", "cat_label": "直接看護Ⅰ", "group": "A 患者中心の看護活動", "subcategory": "hygiene", "sub_label": "清潔", "ai_tool": "", "minutes": 138.0, "count": 3, "in_minutes": 138.0, "ot_minutes": 0.0, "pct": 9.5, "min_per_session": 46.0}, {"category": "personal", "cat_label": "私用", "group": "D その他の活動", "subcategory": "break", "sub_label": "食事・休憩", "ai_tool": "", "minutes": 123.0, "count": 3, "in_minutes": 123.0, "ot_minutes": 0.0, "pct": 8.4, "min_per_session": 41.0}, {"category": "direct1", "cat_label": "直接看護Ⅰ", "group": "A 患者中心の看護活動", "subcategory": "obs", "sub_label": "測定・観察", "ai_tool": "", "minutes": 99.0, "count": 3, "in_minutes": 99.0, "ot_minutes": 0.0, "pct": 6.8, "min_per_session": 33.0}, {"category": "direct1", "cat_label": "直接看護Ⅰ", "group": "A 患者中心の看護活動", "subcategory": "meal", "sub_label": "食事", "ai_tool": "", "minutes": 99.0, "count": 3, "in_minutes": 99.0, "ot_minutes": 0.0, "pct": 6.8, "min_per_session": 33.0}, {"category": "direct2", "cat_label": "直接看護Ⅱ", "group": "A 患者中心の看護活動", "subcategory": "med_inj", "sub_label": "与薬（注射）", "ai_tool": "", "minutes": 84.0, "count": 3, "in_minutes": 84.0, "ot_minutes": 0.0, "pct": 5.8, "min_per_session": 28.0}, {"category": "direct2", "cat_label": "直接看護Ⅱ", "group": "A 患者中心の看護活動", "subcategory": "proc", "sub_label": "看護処置", "ai_tool": "", "minutes": 84.0, "count": 3, "in_minutes": 84.0, "ot_minutes": 0.0, "pct": 5.8, "min_per_session": 28.0}, {"category": "indirect", "cat_label": "間接看護", "group": "A 患者中心の看護活動", "subcategory": "summary", "sub_label": "サマリー", "ai_tool": "SummyAI", "minutes": 78.0, "count": 3, "in_minutes": 78.0, "ot_minutes": 0.0, "pct": 5.4, "min_per_session": 26.0}, {"category": "direct2", "cat_label": "直接看護Ⅱ", "group": "A 患者中心の看護活動", "subcategory": "exam", "sub_label": "検査", "ai_tool": "", "minutes": 69.0, "count": 3, "in_minutes": 69.0, "ot_minutes": 0.0, "pct": 4.7, "min_per_session": 23.0}, {"category": "direct1", "cat_label": "直接看護Ⅰ", "group": "A 患者中心の看護活動", "subcategory": "excretion", "sub_label": "排泄", "ai_tool": "", "minutes": 63.0, "count": 3, "in_minutes": 63.0, "ot_minutes": 0.0, "pct": 4.3, "min_per_session": 21.0}, {"category": "indirect", "cat_label": "間接看護", "group": "A 患者中心の看護活動", "subcategory": "conf", "sub_label": "カンファレンス", "ai_tool": "議事録自動生成", "minutes": 63.0, "count": 3, "in_minutes": 63.0, "ot_minutes": 0.0, "pct": 4.3, "min_per_session": 21.0}, {"category": "indirect", "cat_label": "間接看護", "group": "A 患者中心の看護活動", "subcategory": "handover", "sub_label": "引継ぎ", "ai_tool": "", "minutes": 57.0, "count": 3, "in_minutes": 57.0, "ot_minutes": 0.0, "pct": 3.9, "min_per_session": 19.0}, {"category": "direct1", "cat_label": "直接看護Ⅰ", "group": "A 患者中心の看護活動", "subcategory": "safety", "sub_label": "安全・安楽", "ai_tool": "", "minutes": 54.0, "count": 3, "in_minutes": 54.0, "ot_minutes": 0.0, "pct": 3.7, "min_per_session": 18.0}, {"category": "admin_edu", "cat_label": "管理・教育", "group": "C 職員中心の活動", "subcategory": "training", "sub_label": "研修", "ai_tool": "", "minutes": 42.0, "count": 3, "in_minutes": 42.0, "ot_minutes": 0.0, "pct": 2.9, "min_per_session": 14.0}, {"category": "indirect", "cat_label": "間接看護", "group": "A 患者中心の看護活動", "subcategory": "info", "sub_label": "情報収集", "ai_tool": "", "minutes": 33.0, "count": 3, "in_minutes": 33.0, "ot_minutes": 0.0, "pct": 2.3, "min_per_session": 11.0}, {"category": "supplies", "cat_label": "物品管理", "group": "B 看護単位中心の活動", "subcategory": "drug", "sub_label": "薬品", "ai_tool": "", "minutes": 30.0, "count": 3, "in_minutes": 30.0, "ot_minutes": 0.0, "pct": 2.1, "min_per_session": 10.0}, {"category": "direct3", "cat_label": "直接看護Ⅲ", "group": "A 患者中心の看護活動", "subcategory": "guidance", "sub_label": "患者指導", "ai_tool": "", "minutes": 27.0, "count": 3, "in_minutes": 27.0, "ot_minutes": 0.0, "pct": 1.9, "min_per_session": 9.0}, {"category": "indirect", "cat_label": "間接看護", "group": "A 患者中心の看護活動", "subcategory": "careplan", "sub_label": "看護計画", "ai_tool": "", "minutes": 27.0, "count": 3, "in_minutes": 27.0, "ot_minutes": 0.0, "pct": 1.9, "min_per_session": 9.0}, {"category": "direct1", "cat_label": "直接看護Ⅰ", "group": "A 患者中心の看護活動", "subcategory": "comm", "sub_label": "コミュニケーション", "ai_tool": "", "minutes": 27.0, "count": 3, "in_minutes": 27.0, "ot_minutes": 0.0, "pct": 1.9, "min_per_session": 9.0}, {"category": "direct2", "cat_label": "直接看護Ⅱ", "group": "A 患者中心の看護活動", "subcategory": "patrol", "sub_label": "病室巡視", "ai_tool": "", "minutes": 24.0, "count": 3, "in_minutes": 24.0, "ot_minutes": 0.0, "pct": 1.6, "min_per_session": 8.0}, {"category": "indirect", "cat_label": "間接看護", "group": "A 患者中心の看護活動", "subcategory": "order", "sub_label": "指示受け・報告", "ai_tool": "", "minutes": 18.0, "count": 3, "in_minutes": 18.0, "ot_minutes": 0.0, "pct": 1.2, "min_per_session": 6.0}, {"category": "clerical", "cat_label": "事務", "group": "B 看護単位中心の活動", "subcategory": "general", "sub_label": "事務一般", "ai_tool": "", "minutes": 18.0, "count": 3, "in_minutes": 18.0, "ot_minutes": 0.0, "pct": 1.2, "min_per_session": 6.0}, {"category": "direct3", "cat_label": "直接看護Ⅲ", "group": "A 患者中心の看護活動", "subcategory": "transport", "sub_label": "患者搬送", "ai_tool": "", "minutes": 18.0, "count": 3, "in_minutes": 18.0, "ot_minutes": 0.0, "pct": 1.2, "min_per_session": 6.0}, {"category": "contact", "cat_label": "連絡", "group": "B 看護単位中心の活動", "subcategory": "nursecall", "sub_label": "ナースコール", "ai_tool": "", "minutes": 14.0, "count": 3, "in_minutes": 14.0, "ot_minutes": 0.0, "pct": 1.0, "min_per_session": 4.7}, {"category": "env", "cat_label": "環境整備", "group": "B 看護単位中心の活動", "subcategory": "housekeeping", "sub_label": "ハウスキーピング", "ai_tool": "", "minutes": 14.0, "count": 3, "in_minutes": 14.0, "ot_minutes": 0.0, "pct": 1.0, "min_per_session": 4.7}, {"category": "contact", "cat_label": "連絡", "group": "B 看護単位中心の活動", "subcategory": "phone", "sub_label": "電話連絡", "ai_tool": "", "minutes": 12.0, "count": 3, "in_minutes": 12.0, "ot_minutes": 0.0, "pct": 0.8, "min_per_session": 4.0}], "ai_baseline": [{"category": "indirect", "cat_label": "間接看護", "group": "A 患者中心の看護活動", "subcategory": "record", "sub_label": "看護記録", "ai_tool": "medai SOAP Voice", "minutes": 141.0, "count": 6, "in_minutes": 141.0, "ot_minutes": 0.0, "pct": 9.7, "min_per_session": 47.0}, {"category": "indirect", "cat_label": "間接看護", "group": "A 患者中心の看護活動", "subcategory": "summary", "sub_label": "サマリー", "ai_tool": "SummyAI", "minutes": 78.0, "count": 3, "in_minutes": 78.0, "ot_minutes": 0.0, "pct": 5.4, "min_per_session": 26.0}, {"category": "indirect", "cat_label": "間接看護", "group": "A 患者中心の看護活動", "subcategory": "conf", "sub_label": "カンファレンス", "ai_tool": "議事録自動生成", "minutes": 63.0, "count": 3, "in_minutes": 63.0, "ot_minutes": 0.0, "pct": 4.3, "min_per_session": 21.0}]};
 (function(){
   const orig=window.fetch.bind(window);
   window.fetch=async(url,opts={})=>{
@@ -132,7 +149,7 @@ const $=s=>document.querySelector(s);
 const CATCOLORS={};
 
 async function init(){
-  const cfg=await (await fetch("/api/config")).json();
+  const cfg=await (await fetch("./api/config")).json();
   cfg.wards.forEach(w=>$("#ward").insertAdjacentHTML("beforeend",`<option>${w}</option>`));
   cfg.shifts.forEach(s=>$("#shift").insertAdjacentHTML("beforeend",`<option>${s}</option>`));
   cfg.categories.forEach(c=>CATCOLORS[c.key]=c.color);
@@ -154,9 +171,11 @@ function qs(){
 }
 
 async function load(){
-  const d=await (await fetch("/api/summary?"+qs())).json();
+  const d=await (await fetch("./api/summary?"+qs())).json();
   $("#mSessions").textContent=d.n_sessions;
   $("#mTotal").textContent=(d.total_minutes/60).toFixed(1);
+  $("#mIn").textContent=d.total_in_minutes;
+  $("#mOt").textContent=d.total_ot_minutes;
   $("#mIntervals").textContent=d.n_intervals;
 
   // AIベースライン
@@ -172,7 +191,7 @@ async function load(){
       </div>`);
   });
 
-  // 大区分バー
+  // 中分類バー
   const cb=$("#catBars"); cb.innerHTML="";
   const max=Math.max(...d.categories.map(c=>c.minutes),1);
   d.categories.forEach(c=>{
@@ -186,13 +205,39 @@ async function load(){
   });
   if(!d.categories.length) cb.innerHTML=`<div class="empty">データがありません</div>`;
 
-  // 小区分テーブル
+  // 中分類テーブル（集計用紙の合計行 + 総計）
+  const cr=$("#catRows"); cr.innerHTML="";
+  let lastG=null;
+  d.categories.forEach(c=>{
+    const gcell = c.group!==lastG ? c.group : "";
+    lastG=c.group;
+    cr.insertAdjacentHTML("beforeend",`
+      <tr>
+        <td>${gcell}</td>
+        <td>${c.cat_label}</td>
+        <td class="num">${c.in_minutes}</td>
+        <td class="num">${c.ot_minutes}</td>
+        <td class="num">${c.minutes}</td>
+      </tr>`);
+  });
+  $("#catFoot").innerHTML = d.categories.length ? `
+      <tr>
+        <td></td><td><b>総計</b></td>
+        <td class="num"><b>${d.total_in_minutes}</b></td>
+        <td class="num"><b>${d.total_ot_minutes}</b></td>
+        <td class="num"><b>${d.total_minutes}</b></td>
+      </tr>` : "";
+  $("#catEmpty").style.display = d.categories.length ? "none":"block";
+
+  // 小分類テーブル
   const tb=$("#subRows"); tb.innerHTML="";
   d.subcategories.forEach(s=>{
     tb.insertAdjacentHTML("beforeend",`
       <tr>
         <td>${s.cat_label}</td>
         <td>${s.sub_label} ${s.ai_tool?`<span class="tag">${s.ai_tool}</span>`:""}</td>
+        <td class="num">${s.in_minutes}</td>
+        <td class="num">${s.ot_minutes}</td>
         <td class="num">${s.minutes}</td>
         <td class="num">${s.min_per_session}</td>
         <td class="num">${s.count}</td>
@@ -203,7 +248,7 @@ async function load(){
 }
 
 $("#apply").onclick=load;
-$("#csv").onclick=()=>{ location.href="/api/export.csv?"+qs(); };
+$("#csv").onclick=()=>{ location.href="./api/export.csv?"+qs(); };
 init();
 </script>
 <script>const _c=document.querySelector("#csv"); if(_c) _c.onclick=()=>alert("デモではCSV出力は無効です（実運用版では有効）。");</script>
